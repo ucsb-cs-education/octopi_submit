@@ -1,0 +1,11 @@
+<metal:block use-macro="main_template">
+  <div metal:fill-slot="content">
+    <h3>Make a Submission</h3>
+    <form enctype="multipart/form-data" method="${method}" action="${action}">
+      <label for="file_to_upload">Select a File to Upload</label>
+      <input type="file" name="file_to_upload" id="file_to_upload">
+      <br>
+      <input type="submit" value="Upload" />
+    </form>
+  </div>
+</metal:block>

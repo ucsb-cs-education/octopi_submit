@@ -1,0 +1,9 @@
+<metal:block use-macro="main_template">
+  <div metal:fill-slot="content">
+    <h3>Submissions</h3>
+    <ul tal:condition="submissions">
+      <li tal:repeat="sub submissions">(${sub.pretty_created_at})
+        <a href="${sub.get_url(request)}">${sub.filename}</a></li>
+    </ul>
+  </div>
+</metal:block>

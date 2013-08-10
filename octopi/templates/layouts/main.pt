@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${layout.page_title}</title>
+
+  <link href="${request.static_url('octopi:static/css/bootstrap.min.css')}" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+      }
+    </style>
+    <link href="${request.static_url('octopi:static/css/bootstrap-responsive.min.css')}" rel="stylesheet">
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+  ${panel('navbar')}
+
+  <div class="container">
+    <metal:content define-slot="content" />
+    <hr>
+    <footer>
+      2013 UCSB
+    </footer>
+  </div>
+
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script src="${request.static_url('octopi:static/js/bootstrap.min.js')}"></script>
+</html>

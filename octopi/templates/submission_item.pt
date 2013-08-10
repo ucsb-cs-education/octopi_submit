@@ -1,0 +1,6 @@
+<metal:block use-macro="main_template">
+  <div metal:fill-slot="content">
+    <h3>Submission: ${submission.filename}</h3>
+    <p>Created at: ${submission.pretty_created_at}</p>
+  </div>
+</metal:block>
