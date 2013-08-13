@@ -2,5 +2,6 @@
   <div metal:fill-slot="content">
     <h3>Submission: ${submission.filename}</h3>
     <p>Created at: ${submission.pretty_created_at}</p>
+    <img src="${thumbnail_url}">
   </div>
 </metal:block>

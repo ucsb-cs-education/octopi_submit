@@ -35,6 +35,10 @@ class Submission(object):
     def pretty_created_at(self):
         return time.ctime(self.created_at)
 
+    def get_thumbnail_url(self, request):
+        return request.static_url(os.path.join(self.STORAGE_PATH,
+                                               self.filename + '.png'))
+
     def get_url(self, request):
         return request.route_url('submission_item',
                                  submission_id=self.filename)

@@ -15,6 +15,7 @@ requires = [
     'pyramid_debugtoolbar',
     'zope.sqlalchemy',
     'waitress',
+    'hairball>=0.1rc1'
     ]
 
 setup(name='octopi',
