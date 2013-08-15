@@ -23,12 +23,11 @@ def submission_create(request):
     # Compute the sha1sum of the file and build the response
     sha1sum = sha1(file_.read()).hexdigest()
     file_.seek(0)
-    response = HTTPFound(request.route_url('submission_item',
+    response = HTTPFound(request.route_url('submission.item',
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    path = os.path.join(Submission.STORAGE_PATH, sha1sum)
-    if os.path.isfile(path):
+    if Submission.exists(sha1sum, username='username'):
         return response
 
     # Kurt closes the file-like object so we need to duplicate it
@@ -45,14 +44,7 @@ def submission_create(request):
         print e
         return HTTPBadRequest()
 
-    # Save a copy of the file
-    temp_path = path + '~'
-    with open(temp_path, 'wb') as fp:
-        fp.write(file_.read())
-    os.rename(temp_path, path)
-
-    # Save the thumbnail
-    scratch.thumbnail.save(path + '.png')
+    Submission.save(sha1sum, file_, ext, scratch, 'username')
 
     # Run the plugins
     #hairball = Hairball(['-p', 'blocks.BlockCounts'])
@@ -61,7 +53,7 @@ def submission_create(request):
     return response
 
 
-@view_config(route_name='submission_item', request_method='GET',
+@view_config(route_name='submission.item', request_method='GET',
              renderer='octopi:templates/submission_item.pt')
 def submission_item(request):
     submission = Submission.get_submission(request.matchdict['submission_id'])

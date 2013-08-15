@@ -3,7 +3,7 @@
     <h3>Submissions</h3>
     <ul tal:condition="submissions">
       <li tal:repeat="sub submissions">(${sub.pretty_created_at})
-        <a href="${sub.get_url(request)}">${sub.filename}</a></li>
+        <a href="${sub.get_url(request)}">${sub.sha1sum}</a></li>
     </ul>
   </div>
 </metal:block>
