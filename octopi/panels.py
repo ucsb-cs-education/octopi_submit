@@ -1,4 +1,5 @@
 from pyramid_layout.panel import panel_config
+from pyramid.security import authenticated_userid
 
 
 @panel_config(name='navbar', renderer='octopi:templates/panels/navbar.pt')
@@ -9,4 +10,9 @@ def navbar(context, request):
     nav = [nav_item('Home', request.route_url('home')),
            nav_item('Submit', request.route_url('submission.create')),
            nav_item('Submissions', request.route_url('submission'))]
+    if authenticated_userid(request):
+        nav.append(nav_item('Logout', request.route_url('logout')))
+    else:
+        nav.append(nav_item('Login', request.route_url('login')))
+
     return {'nav': nav, 'title': 'OCTOPI'}

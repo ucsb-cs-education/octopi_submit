@@ -11,12 +11,6 @@ import time
 DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
 Base = declarative_base()
 
-class RootFactory(object):
-    __acl__ = [(Allow, 'g:admin', ALL_PERMISSIONS)]
-
-    def __init__(self, request):
-        pass
-
 
 class User(object):
     @property
@@ -37,7 +31,7 @@ class Submission(object):
 
     @property
     def __acl__(self):
-        return [(Allow, x, 'view') for x in self.owners] + [DENY_ALL]
+        return [(Allow, x, 'view') for x in self.owners]
 
     @classmethod
     def exists(cls, sha1sum, username=None):
@@ -118,12 +112,22 @@ class Submission(object):
         return request.route_url('submission.item',
                                  submission_id=self.sha1sum)
 
-USERS = {'bboe': User('bboe', 'bboe', ['g:admin']),
-         'test': User('test', 'test')}
+
+USERS = {'admin': User('admin', 'admin', ['admin']),
+         'user1': User('user1', 'user1'),
+         'user2': User('user2', 'user2')}
+
+
+class RootFactory(object):
+    __acl__ = [(Allow, 'g:admin', ALL_PERMISSIONS)]
+
+    def __init__(self, request):
+        pass
 
 
 class SubmissionFactory(object):
-    __acl__ = [(Allow, Authenticated, ('create', 'list'))]
+    __acl__ = [(Allow, Authenticated, ('create', 'list')),
+               (Allow, 'g:admin', ALL_PERMISSIONS)]
 
     def __init__(self, request):
         pass

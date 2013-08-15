@@ -56,6 +56,12 @@ def submission_create(request):
     return response
 
 
+@view_config(route_name='submission.create', permission='create',
+             renderer='octopi:templates/form_submit.pt')
+def submission_form(request):
+    return {'action': request.route_url('submission'), 'method': 'POST'}
+
+
 @view_config(route_name='submission.item', request_method='GET',
              renderer='octopi:templates/submission_item.pt', permission='view')
 def submission_item(request):
