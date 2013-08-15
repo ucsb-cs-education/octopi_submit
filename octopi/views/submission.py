@@ -3,6 +3,7 @@ from hairball import Hairball
 from hashlib import sha1
 from kurt import Project
 from pyramid.httpexceptions import HTTPBadRequest, HTTPFound, HTTPNotFound
+from pyramid.security import authenticated_userid
 from pyramid.view import view_config
 from ..hairball import octopi
 from ..models import Submission
@@ -11,13 +12,14 @@ import os
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 
 
-@view_config(route_name='submission', request_method='POST')
+@view_config(route_name='submission', request_method='POST',
+             permission='create')
 def submission_create(request):
     file_ = request.POST['file_to_upload'].file
     filename = request.POST['file_to_upload'].filename
     base, ext = os.path.splitext(filename)
     if ext not in EXT_MAPPING:
-        # TODO: Pretty up this exceptio handling
+        # TODO: Pretty up this exception handling
         return HTTPBadRequest()
 
     # Compute the sha1sum of the file and build the response
@@ -27,7 +29,8 @@ def submission_create(request):
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    if Submission.exists(sha1sum, username='username'):
+    username = authenticated_userid(request)
+    if Submission.exists(sha1sum, username=username):
         return response
 
     # Kurt closes the file-like object so we need to duplicate it
@@ -44,7 +47,7 @@ def submission_create(request):
         print e
         return HTTPBadRequest()
 
-    Submission.save(sha1sum, file_, ext, scratch, 'username')
+    Submission.save(sha1sum, file_, ext, scratch, username)
 
     # Run the plugins
     #hairball = Hairball(['-p', 'blocks.BlockCounts'])
@@ -54,7 +57,7 @@ def submission_create(request):
 
 
 @view_config(route_name='submission.item', request_method='GET',
-             renderer='octopi:templates/submission_item.pt')
+             renderer='octopi:templates/submission_item.pt', permission='view')
 def submission_item(request):
     submission = Submission.get_submission(request.matchdict['submission_id'])
     if not submission:
@@ -63,7 +66,7 @@ def submission_item(request):
             'thumbnail_url': submission.get_thumbnail_url(request)}
 
 
-@view_config(route_name='submission', request_method='GET',
+@view_config(route_name='submission', request_method='GET', permission='list',
              renderer='octopi:templates/submission_list.pt')
 def submission_list(request):
     return {'submissions': Submission.get_submission_list()}
