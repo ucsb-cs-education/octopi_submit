@@ -26,38 +26,50 @@ class User(object):
 
 class Project(object):
     STORAGE_PATH = '/tmp/octopi_files/'
+    USERS_FILENAME = 'users.txt'
 
     @classmethod
     def exists(cls, name):
         return os.path.isdir(os.path.join(cls.STORAGE_PATH, name))
 
     @classmethod
+    def get_user_projects(cls, username):
+        projects = []
+        for project in cls.get_project_list():
+            if project.has_access(username):
+                projects.append(project)
+        return projects
+
+    @classmethod
     def get_project_list(cls):
         projects = []
         for filename in os.listdir(cls.STORAGE_PATH):
-            dir_path = os.path.join(cls.STORAGE_PATH, filename)
-            owner_path = os.path.join(dir_path, OWNERS_FILENAME)
-            if not (os.path.isdir(dir_path) and os.path.isfile(owner_path)):
-                continue
-            projects.append(cls(filename, open(owner_path).read().split()))
+            project = cls.get_project(filename)
+            print filename, project
+            if project:
+                projects.append(project)
         return projects
 
     @classmethod
     def get_project(cls, name):
         dir_path = os.path.join(cls.STORAGE_PATH, name)
         owner_path = os.path.join(dir_path, OWNERS_FILENAME)
-        if not os.path.isdir(dir_path) or not os.path.isfile(owner_path):
+        user_path = os.path.join(dir_path, cls.USERS_FILENAME)
+        if not (os.path.isdir(dir_path) and os.path.isfile(owner_path)
+                and os.path.isfile(user_path)):
             return False
-        return cls(name, open(owner_path).read().split())
+        return cls(name, open(owner_path).read().split(),
+                   open(user_path).read().split())
 
     @property
     def __acl__(self):
         return [(Allow, x, 'view') for x in self.owners] + \
             [(Allow, Everyone, 'submit')]
 
-    def __init__(self, name, owners):
+    def __init__(self, name, owners, users):
         self.name = name
         self.owners = owners
+        self.users = users
         self.path = os.path.join(self.STORAGE_PATH, name)
 
     def __getitem__(self, key):
@@ -69,10 +81,17 @@ class Project(object):
         return submission
 
     def get_user_submissions(self, username):
+        owner = 'admin' in USERS[username].groups or username in self.owners
+        if not owner and username not in self.users:
+            raise Exception('Invalid project for {}'.format(username))
         submissions = Submission.get_submission_list(self)
-        if 'admin' in USERS[username].groups or username in self.owners:
+        if owner:
             return submissions
         return [s for s in submissions if username in s.owners]
+
+    def has_access(self, username):
+        return ('admin' in USERS[username].groups or
+                username in self.owners or username in self.users)
 
 
 class Submission(object):
@@ -167,9 +186,13 @@ class Submission(object):
 
 
 USERS = {'admin': User('admin', 'admin', ['admin']),
-         'user1': User('user1', 'user1'),
-         'user2': User('user2', 'user2'),
-         'user3': User('user3', 'user3')}
+         'teacher1': User('teacher1', 'teacher1'),
+         'teacher2': User('teacher2', 'teacher2'),
+         'student1': User('student1', 'student1'),
+         'student2': User('student2', 'student2'),
+         'student3': User('student3', 'student3'),
+         'student4': User('student4', 'student4'),
+         'student5': User('student5', 'student5')}
 
 
 class ProjectFactory(object):

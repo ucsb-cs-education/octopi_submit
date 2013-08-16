@@ -129,7 +129,7 @@ class OctopiSerializer(Serializer):
         # save the hidden scripts
         clean_up(kurt_scriptable.hiddenscripts)
         voct_scriptable.hiddenbin = map(self.save_script,
-                                       kurt_scriptable.hiddenscripts)
+                                        kurt_scriptable.hiddenscripts)
         blocks_by_id = []
         for script in kurt_scriptable.hiddenscripts:
             if isinstance(script, kurt.Script):

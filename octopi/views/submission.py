@@ -14,12 +14,14 @@ EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 @view_config(route_name='submission', request_method='POST',
              permission='create')
 def submission_create(request):
+    username = authenticated_userid(request)
     try:
         file_ = request.POST['file_to_upload'].file
         filename = request.POST['file_to_upload'].filename
         base, ext = os.path.splitext(filename)
         project = Project.get_project(request.POST['project'])
-        if not project or ext not in EXT_MAPPING:
+        if not project or not project.has_access(username) \
+                or ext not in EXT_MAPPING:
             raise KeyError
     except (AttributeError, KeyError):
         # TODO: Pretty up this exception handling
@@ -33,7 +35,6 @@ def submission_create(request):
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    username = authenticated_userid(request)
     if Submission.exists(project, sha1sum, username=username):
         return response
 
@@ -64,7 +65,8 @@ def submission_create(request):
 @view_config(route_name='submission.create', permission='create',
              renderer='octopi:templates/form_submit.pt')
 def submission_form(request):
-    projects = sorted((x.name for x in Project.get_project_list()),
+    username = authenticated_userid(request)
+    projects = sorted((x.name for x in Project.get_user_projects(username)),
                       key=alphanum_key)
     return {'projects': projects}
 
@@ -82,7 +84,7 @@ def submission_list(request):
     username = authenticated_userid(request)
     owned = []
     subs_by_prod = {}
-    for project in Project.get_project_list():
+    for project in Project.get_user_projects(username):
         if username in project.owners:
             owned.append(project.name)
         submissions = project.get_user_submissions(username)
