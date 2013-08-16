@@ -1,12 +1,13 @@
 from cStringIO import StringIO
 from hairball import Hairball
 from hashlib import sha1
-from kurt import Project
-from pyramid.httpexceptions import HTTPBadRequest, HTTPFound, HTTPNotFound
+from kurt import Project as KurtProject
+from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
 from pyramid.security import authenticated_userid
 from pyramid.view import view_config
 from ..hairball import octopi
-from ..models import Submission
+from ..helpers import alphanum_key
+from ..models import Project, Submission
 import os
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
@@ -15,10 +16,14 @@ EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 @view_config(route_name='submission', request_method='POST',
              permission='create')
 def submission_create(request):
-    file_ = request.POST['file_to_upload'].file
-    filename = request.POST['file_to_upload'].filename
-    base, ext = os.path.splitext(filename)
-    if ext not in EXT_MAPPING:
+    try:
+        file_ = request.POST['file_to_upload'].file
+        filename = request.POST['file_to_upload'].filename
+        base, ext = os.path.splitext(filename)
+        project = Project.get_project(request.POST['project'])
+        if not project or ext not in EXT_MAPPING:
+            raise KeyError
+    except (AttributeError, KeyError):
         # TODO: Pretty up this exception handling
         return HTTPBadRequest()
 
@@ -26,11 +31,12 @@ def submission_create(request):
     sha1sum = sha1(file_.read()).hexdigest()
     file_.seek(0)
     response = HTTPFound(request.route_url('submission.item',
+                                           project_id=project.name,
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
     username = authenticated_userid(request)
-    if Submission.exists(sha1sum, username=username):
+    if Submission.exists(project, sha1sum, username=username):
         return response
 
     # Kurt closes the file-like object so we need to duplicate it
@@ -41,13 +47,12 @@ def submission_create(request):
 
     # Load the file with Kurt
     try:
-        scratch = Project.load(tmp_file, format=EXT_MAPPING[ext])
-    except Exception as e:  # Probably not a valid scratch file
+        scratch = KurtProject.load(tmp_file, format=EXT_MAPPING[ext])
+    except Exception:  # Probably not a valid scratch file
         # TODO: Pretty up this exception handling
-        print e
         return HTTPBadRequest()
 
-    Submission.save(sha1sum, file_, ext, scratch, username)
+    Submission.save(project, sha1sum, file_, ext, scratch, username)
 
     # Run the plugins
     #hairball = Hairball(['-p', 'blocks.BlockCounts'])
@@ -59,15 +64,14 @@ def submission_create(request):
 @view_config(route_name='submission.create', permission='create',
              renderer='octopi:templates/form_submit.pt')
 def submission_form(request):
-    return {'action': request.route_url('submission'), 'method': 'POST'}
+    projects = sorted((x.name for x in Project.get_project_list()),
+                      key=alphanum_key)
+    return {'projects': projects}
 
 
 @view_config(route_name='submission.item', request_method='GET',
              renderer='octopi:templates/submission_item.pt', permission='view')
-def submission_item(request):
-    submission = Submission.get_submission(request.matchdict['submission_id'])
-    if not submission:
-        return HTTPNotFound()
+def submission_item(submission, request):
     return {'submission': submission,
             'thumbnail_url': submission.get_thumbnail_url(request)}
 
@@ -75,4 +79,14 @@ def submission_item(request):
 @view_config(route_name='submission', request_method='GET', permission='list',
              renderer='octopi:templates/submission_list.pt')
 def submission_list(request):
-    return {'submissions': Submission.get_submission_list()}
+    username = authenticated_userid(request)
+    owned = []
+    subs_by_prod = {}
+    for project in Project.get_project_list():
+        if username in project.owners:
+            owned.append(project.name)
+        submissions = project.get_user_submissions(username)
+        if submissions:
+            subs_by_prod[project.name] = submissions
+    projects = sorted(subs_by_prod, key=alphanum_key)
+    return {'owned': owned, 'projects': projects, 'subs_by_prod': subs_by_prod}
