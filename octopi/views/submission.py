@@ -1,11 +1,9 @@
 from cStringIO import StringIO
-from hairball import Hairball
 from hashlib import sha1
 from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
 from pyramid.security import authenticated_userid
 from pyramid.view import view_config
-from ..hairball import octopi
 from ..helpers import alphanum_key
 from ..models import Project, Submission
 import os
@@ -55,6 +53,8 @@ def submission_create(request):
     Submission.save(project, sha1sum, file_, ext, scratch, username)
 
     # Run the plugins
+    #from hairball import Hairball
+    #from ..hairball import octopi
     #hairball = Hairball(['-p', 'blocks.BlockCounts'])
     #hairball.initialize_plugins()
 

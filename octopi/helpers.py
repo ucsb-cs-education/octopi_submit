@@ -1,5 +1,6 @@
 import re
 
+
 def alphanum_key(string):
     """Return a comparable tuple with extracted number segments.
 
