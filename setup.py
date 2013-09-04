@@ -7,15 +7,16 @@ README = open(os.path.join(here, 'README.txt')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
-    'pyramid',
     'SQLAlchemy',
-    'transaction',
+    'hairball>=0.1rc3',
+    'kelp',
+    'pyramid',
+    'pyramid_debugtoolbar',
     'pyramid_layout',
     'pyramid_tm',
-    'pyramid_debugtoolbar',
-    'zope.sqlalchemy',
+    'transaction',
     'waitress',
-    'hairball>=0.1rc2'
+    'zope.sqlalchemy'
     ]
 
 setup(name='octopi',

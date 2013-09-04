@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from zope.sqlalchemy import ZopeTransactionExtension
 import os
+import shutil
 import time
 
 
@@ -45,7 +46,6 @@ class Project(object):
         projects = []
         for filename in os.listdir(cls.STORAGE_PATH):
             project = cls.get_project(filename)
-            print filename, project
             if project:
                 projects.append(project)
         return projects
@@ -95,6 +95,7 @@ class Project(object):
 
 
 class Submission(object):
+    RESULTS_FILENAME = 'results.html'
     SCRATCH_FILENAME = 'file{}'
     THUMB_FILENAME = 'image.png'
 
@@ -156,12 +157,15 @@ class Submission(object):
         with open(os.path.join(tmp_dir_path, OWNERS_FILENAME), 'w') as fp:
             fp.write(username)
         # Save a copy of the file
+        file_.seek(0)
         with open(os.path.join(tmp_dir_path, cls.SCRATCH_FILENAME.format(ext)),
                   'wb') as fp:
             fp.write(file_.read())
         # Save the thumbnail
         scratch.thumbnail.save(os.path.join(tmp_dir_path, cls.THUMB_FILENAME))
         # Rename the directory (everything worked!)
+        if os.path.isdir(dir_path):  # Delete the old directory if it exists
+            shutil.rmtree(dir_path)
         os.rename(tmp_dir_path, dir_path)
 
     def __init__(self, project, sha1sum, owners):
@@ -174,6 +178,10 @@ class Submission(object):
     @property
     def pretty_created_at(self):
         return time.ctime(self.created_at)
+
+    def get_results(self):
+        return open(os.path.join(self.project.path, self.sha1sum,
+                                 self.RESULTS_FILENAME)).read()
 
     def get_thumbnail_url(self, request):
         return request.static_url(os.path.join(self.project.path, self.sha1sum,
@@ -203,7 +211,6 @@ class ProjectFactory(object):
 
     def __getitem__(self, key):
         project = Project.get_project(key)
-        print project
         if not project:
             raise KeyError
         project.__parent__ = self

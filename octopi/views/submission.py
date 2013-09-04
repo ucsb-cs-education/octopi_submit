@@ -1,5 +1,6 @@
-from cStringIO import StringIO
 from hashlib import sha1
+from kelp.offline import (htmlwrappers as HTML_WRAPPERS,
+                          plugins as PLUGIN_MAPPING)
 from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
 from pyramid.security import authenticated_userid
@@ -35,30 +36,26 @@ def submission_create(request):
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    if Submission.exists(project, sha1sum, username=username):
-        return response
-
-    # Kurt closes the file-like object so we need to duplicate it
-    if hasattr(file_, 'fileno'):
-        tmp_file = os.fdopen(os.dup(file_.fileno()))
-    else:
-        tmp_file = StringIO(file_.read())
-
+    #if Submission.exists(project, sha1sum, username=username):
+    #    return response
     # Load the file with Kurt
     try:
-        scratch = KurtProject.load(tmp_file, format=EXT_MAPPING[ext])
+        scratch = KurtProject.load(file_, format=EXT_MAPPING[ext])
     except Exception:  # Probably not a valid scratch file
         # TODO: Pretty up this exception handling
         return HTTPBadRequest()
-
+    # Save the project
     Submission.save(project, sha1sum, file_, ext, scratch, username)
 
-    # Run the plugins
-    #from hairball import Hairball
-    #from ..hairball import octopi
-    #hairball = Hairball(['-p', 'blocks.BlockCounts'])
-    #hairball.initialize_plugins()
-
+    # Run each plugin and append its HTML template output to the HTML result
+    dir_path = os.path.join(project.path, sha1sum)
+    html = []
+    for plugin_class in PLUGIN_MAPPING['broadcast']:
+        plugin = plugin_class()
+        results = plugin._process(scratch, dir_path)
+        html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
+    with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
+        fp.write('\n'.join(html))
     return response
 
 
@@ -75,6 +72,7 @@ def submission_form(request):
              renderer='octopi:templates/submission_item.pt', permission='view')
 def submission_item(submission, request):
     return {'submission': submission,
+            'content' : submission.get_results(),
             'thumbnail_url': submission.get_thumbnail_url(request)}
 
 
