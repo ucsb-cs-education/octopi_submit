@@ -36,9 +36,11 @@ def main(global_config, **settings):
                           authentication_policy=authn_policy,
                           authorization_policy=authz_policy,
                           session_factory=session_factory)
-    config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_static_view('data', path=Project.STORAGE_PATH,
                            cache_max_age=3600)
+    config.add_static_view('images', path='/tmp/octopi_images/',
+                           cache_max_age=3600)
+    config.add_static_view('static', 'static', cache_max_age=3600)
     config.include(set_routes)
     config.scan()
     return config.make_wsgi_app()

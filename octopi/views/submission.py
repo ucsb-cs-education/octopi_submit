@@ -1,4 +1,5 @@
 from hashlib import sha1
+from kelp.kelpplugin import KelpPlugin
 from kelp.offline import (htmlwrappers as HTML_WRAPPERS,
                           plugins as PLUGIN_MAPPING)
 from kurt import Project as KurtProject
@@ -10,6 +11,16 @@ from ..models import Project, Submission
 import os
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
+
+
+# Monkey patch get_paths function to save images as we want them
+def _get_paths(image, *args, **kwargs):
+    sha1sum = sha1(image.image._pil_image.tostring()).hexdigest()
+    filename = '{}.png'.format(sha1sum)
+    file_path = os.path.join('/tmp/octopi_images', filename)
+    url_path = '/images/{}'.format(filename)
+    return file_path, url_path
+KelpPlugin.get_paths = staticmethod(_get_paths)
 
 
 @view_config(route_name='submission', request_method='POST',
@@ -52,7 +63,7 @@ def submission_create(request):
     html = []
     for plugin_class in PLUGIN_MAPPING['broadcast']:
         plugin = plugin_class()
-        results = plugin._process(scratch, dir_path)
+        results = plugin._process(scratch)
         html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
     with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
         fp.write('\n'.join(html))
@@ -72,7 +83,7 @@ def submission_form(request):
              renderer='octopi:templates/submission_item.pt', permission='view')
 def submission_item(submission, request):
     return {'submission': submission,
-            'content' : submission.get_results(),
+            'content': submission.get_results(),
             'thumbnail_url': submission.get_thumbnail_url(request)}
 
 
