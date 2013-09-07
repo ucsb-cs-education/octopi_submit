@@ -1,17 +1,12 @@
-from pyramid.security import ALL_PERMISSIONS, Allow, Authenticated, Everyone
-from sqlalchemy import Column, Integer, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker
-from zope.sqlalchemy import ZopeTransactionExtension
+from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL,
+                              authenticated_userid)
+import json
 import os
 import shutil
 import time
 
 
-DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
-Base = declarative_base()
-
-OWNERS_FILENAME = 'owners.txt'
+STORAGE_PATH = '/tmp/octopi_files'
 
 
 class User(object):
@@ -19,58 +14,84 @@ class User(object):
     def __acl__(self):
         return [(Allow, self.username, 'view')]
 
-    def __init__(self, username, password, groups=None):
+    @property
+    def classes(self):
+        return self.owner_of | self.student_of
+
+    @property
+    def classes_dict(self):
+        return {x.name: x for x in self.classes}
+
+    def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.groups = groups or []
+        self.owner_of = set()
+        self.student_of = set()
+        self.groups = []
+
+    def make_owner(self, class_):
+        self.owner_of.add(class_)
+
+    def make_student(self, class_):
+        self.student_of.add(class_)
+
+    def get_projects(self):
+        return [x for class_ in self.classes
+                for x in class_.projects.values()]
+
+
+class Class(object):
+    @property
+    def viewers(self):
+        return self.owners | self.students
+
+    def __init__(self, name, settings):
+        self.name = name
+        self.owners = set()
+        self.students = set()
+        self.projects = {}
+
+        # Update users dictionary to list what classes the user is either
+        # an owner, or a student of
+        for username in settings['owners']:
+            USERS[username].make_owner(self)
+            self.owners.add(USERS[username])
+        for username in settings['students']:
+            USERS[username].make_student(self)
+            self.students.add(USERS[username])
+        for project_name in settings['projects']:
+            self.projects[project_name] = Project(project_name, self)
+            # Create the project directory if it does not exist
+            path = os.path.join(STORAGE_PATH, name, project_name)
+            if not os.path.isdir(path):
+                os.mkdir(path)
+
+    def __getitem__(self, project_id):
+        return self.projects[project_id]
 
 
 class Project(object):
-    STORAGE_PATH = '/tmp/octopi_files/'
-    USERS_FILENAME = 'users.txt'
-
-    @classmethod
-    def exists(cls, name):
-        return os.path.isdir(os.path.join(cls.STORAGE_PATH, name))
-
-    @classmethod
-    def get_user_projects(cls, username):
-        projects = []
-        for project in cls.get_project_list():
-            if project.has_access(username):
-                projects.append(project)
-        return projects
-
-    @classmethod
-    def get_project_list(cls):
-        projects = []
-        for filename in os.listdir(cls.STORAGE_PATH):
-            project = cls.get_project(filename)
-            if project:
-                projects.append(project)
-        return projects
-
-    @classmethod
-    def get_project(cls, name):
-        dir_path = os.path.join(cls.STORAGE_PATH, name)
-        owner_path = os.path.join(dir_path, OWNERS_FILENAME)
-        user_path = os.path.join(dir_path, cls.USERS_FILENAME)
-        if not (os.path.isdir(dir_path) and os.path.isfile(owner_path)
-                and os.path.isfile(user_path)):
-            return False
-        return cls(name, open(owner_path).read().split(),
-                   open(user_path).read().split())
-
     @property
     def __acl__(self):
-        return [(Allow, x, 'view') for x in self.owners] + \
-            [(Allow, Everyone, 'submit')]
+        acl = [(Allow, Authenticated, 'submit')] +\
+            [(Allow, x.username, 'view') for x in self.class_.viewers]
+        return acl
 
-    def __init__(self, name, owners, users):
+    @property
+    def display_name(self):
+        return '({}) {}'.format(self.class_.name, self.name)
+
+    @property
+    def form_name(self):
+        return json.dumps((self.class_.name, self.name))
+
+    @property
+    def path(self):
+        return os.path.join(STORAGE_PATH, self.class_.name, self.name)
+
+    def __init__(self, name, class_):
         self.name = name
-        self.owners = owners
-        self.users = users
-        self.path = os.path.join(self.STORAGE_PATH, name)
+        self.class_ = class_
 
     def __getitem__(self, key):
         submission = Submission.get_submission(self, key)
@@ -80,22 +101,44 @@ class Project(object):
         submission.__name__ = key
         return submission
 
-    def get_user_submissions(self, username):
-        owner = 'admin' in USERS[username].groups or username in self.owners
-        if not owner and username not in self.users:
-            raise Exception('Invalid project for {}'.format(username))
-        submissions = Submission.get_submission_list(self)
+    def get_submissions(self, user=None):
+        # Verify access
+        if user:
+            owner = 'admin' in user.groups or self.class_ in user.owner_of
+            if not owner and self.class_ not in user.student_of:
+                raise Exception('Invalid project for {}'.format(user.name))
+        else:
+            owner = True  # No user specified, fetch all submissions
+
+        # Build the list of submissions
+        submissions = []
+        for filename in os.listdir(self.path):
+            path = os.path.join(self.path, filename)
+            if filename.endswith('~') or not os.path.isdir(path):
+                continue
+            submissions.append(Submission(self, filename))
+
+        # Return the appropriate list
         if owner:
             return submissions
-        return [s for s in submissions if username in s.owners]
+        return [s for s in submissions if user.username in s.owners]
 
-    def has_access(self, username):
-        return ('admin' in USERS[username].groups or
-                username in self.owners or username in self.users)
+    def has_access(self, user):
+        return 'admin' in user.groups or self.class_.name in user.classes
+
+    def has_submission(self, sha1sum, add_user=None):
+        path = os.path.join(self.path, sha1sum)
+        if not os.path.isdir(path):
+            return False
+        # Add user to owners file if add_user is set and it is not there
+        if add_user:
+            submission = Submission(self, sha1sum)
+            submission.make_owner(add_user)
 
 
 class Submission(object):
     RESULTS_FILENAME = 'results.html'
+    OWNERS_FILENAME = 'owners.json'
     SCRATCH_FILENAME = 'file{}'
     THUMB_FILENAME = 'image.png'
 
@@ -104,34 +147,9 @@ class Submission(object):
         return [(Allow, x, 'view') for x in self.owners]
 
     @classmethod
-    def exists(cls, project, sha1sum, username=None):
-        dir_path = os.path.join(project.path, sha1sum)
-        if not os.path.isdir(dir_path):
-            return False
-        # If username is set add it to the owners file if it is not there
-        if username:
-            owners_file = os.path.join(dir_path, OWNERS_FILENAME)
-            owners = open(owners_file).read().split()
-            if not username in owners:
-                open(owners_file, 'w').write('\n'.join(owners + [username]))
-        return True
-
-    @classmethod
-    def get_submission_list(cls, project):
-        submissions = []
-        for sha1sum in os.listdir(project.path):
-            submission_path = os.path.join(project.path, sha1sum)
-            if sha1sum.endswith('~') or not os.path.isdir(submission_path):
-                continue
-            owner_path = os.path.join(submission_path, OWNERS_FILENAME)
-            submissions.append(cls(project, sha1sum,
-                                   open(owner_path).read().split()))
-        return submissions
-
-    @classmethod
     def get_submission(cls, project, sha1sum):
         dir_path = os.path.join(project.path, sha1sum)
-        owner_path = os.path.join(dir_path, OWNERS_FILENAME)
+        owner_path = os.path.join(dir_path, cls.OWNERS_FILENAME)
         if not os.path.isdir(dir_path) or not os.path.isfile(owner_path):
             return False
         scratch_file = None
@@ -145,7 +163,7 @@ class Submission(object):
         return cls(project, sha1sum, open(owner_path).read().split())
 
     @classmethod
-    def save(cls, project, sha1sum, file_, ext, scratch, username):
+    def save(cls, project, sha1sum, file_, ext, scratch, user):
         dir_path = os.path.join(project.path, sha1sum)
         tmp_dir_path = dir_path + '~'
         if os.path.isdir(tmp_dir_path):
@@ -153,9 +171,6 @@ class Submission(object):
                 tmp_dir_path += '~'
         # Create the directory by sha1sum
         os.mkdir(tmp_dir_path)
-        # Add the owner
-        with open(os.path.join(tmp_dir_path, OWNERS_FILENAME), 'w') as fp:
-            fp.write(username)
         # Save a copy of the file
         file_.seek(0)
         with open(os.path.join(tmp_dir_path, cls.SCRATCH_FILENAME.format(ext)),
@@ -167,11 +182,18 @@ class Submission(object):
         if os.path.isdir(dir_path):  # Delete the old directory if it exists
             shutil.rmtree(dir_path)
         os.rename(tmp_dir_path, dir_path)
+        # Add the owner after the folder has been renamed
+        submission = Submission(project, sha1sum, create=True)
+        submission.make_owner(user)
 
-    def __init__(self, project, sha1sum, owners):
+    def __init__(self, project, sha1sum, create=False):
         self.project = project
         self.sha1sum = sha1sum
-        self.owners = owners
+        if create:
+            self.owners = set()
+        else:
+            path = os.path.join(project.path, sha1sum, self.OWNERS_FILENAME)
+            self.owners = set(json.load(open(path)))
         self.created_at = os.path.getctime(os.path.join(project.path,
                                                         sha1sum))
 
@@ -189,33 +211,27 @@ class Submission(object):
 
     def get_url(self, request):
         return request.route_url('submission.item',
+                                 class_id=self.project.class_.name,
                                  project_id=self.project.name,
                                  submission_id=self.sha1sum)
 
-
-USERS = {'admin': User('admin', 'admin', ['admin']),
-         'teacher1': User('teacher1', 'teacher1'),
-         'teacher2': User('teacher2', 'teacher2'),
-         'student1': User('student1', 'student1'),
-         'student2': User('student2', 'student2'),
-         'student3': User('student3', 'student3'),
-         'student4': User('student4', 'student4'),
-         'student5': User('student5', 'student5')}
+    def make_owner(self, user):
+        if user.username not in self.owners:
+            self.owners.add(user.username)
+            with open(os.path.join(self.project.path, self.sha1sum,
+                                   self.OWNERS_FILENAME), 'w') as fp:
+                json.dump(list(self.owners), fp)
 
 
-class ProjectFactory(object):
-    __acl__ = [(Allow, 'g:admin', ALL_PERMISSIONS)]
+class ClassFactory(object):
+    __acl__ = [(Allow, 'g:admin', ALL_PERMISSIONS),
+               DENY_ALL]
 
     def __init__(self, request):
         pass
 
-    def __getitem__(self, key):
-        project = Project.get_project(key)
-        if not project:
-            raise KeyError
-        project.__parent__ = self
-        project.__name__ = key
-        return project
+    def __getitem__(self, class_id):
+        return CLASSES[class_id]
 
 
 class RootFactory(object):
@@ -239,12 +255,24 @@ def groupfinder(userid, request):
         return ['g:{}'.format(x) for x in user.groups]
 
 
-class MyModel(Base):
-    __tablename__ = 'models'
-    id = Column(Integer, primary_key=True)
-    name = Column(Text, unique=True)
-    value = Column(Integer)
+USERS = {}
+CLASSES = {}
 
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
+
+def _initialize():
+    # users.json is a simple mapping between users and password
+    # convert to a more usable internal format
+    for user, password in json.load(open(os.path.join(STORAGE_PATH,
+                                                      'users.json'))):
+        USERS[user] = User(user, password)
+
+    # Update users dictionary to list the classes they belong to
+    for filename in os.listdir(STORAGE_PATH):
+        class_path = os.path.join(STORAGE_PATH, filename)
+        if os.path.isdir(class_path):
+            settings = json.load(open(os.path.join(class_path,
+                                                   'settings.json')))
+            CLASSES[filename] = Class(filename, settings)
+
+
+_initialize()

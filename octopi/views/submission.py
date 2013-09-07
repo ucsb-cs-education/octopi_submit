@@ -3,11 +3,12 @@ from kelp.kelpplugin import KelpPlugin
 from kelp.offline import (htmlwrappers as HTML_WRAPPERS,
                           plugins as PLUGIN_MAPPING)
 from kurt import Project as KurtProject
-from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
+from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.security import authenticated_userid
 from pyramid.view import view_config
 from ..helpers import alphanum_key
-from ..models import Project, Submission
+from ..models import Submission, USERS
+import json
 import os
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
@@ -26,42 +27,50 @@ KelpPlugin.get_paths = staticmethod(_get_paths)
 @view_config(route_name='submission', request_method='POST',
              permission='create')
 def submission_create(request):
-    username = authenticated_userid(request)
+    # Validate fields
     try:
-        file_ = request.POST['file_to_upload'].file
-        filename = request.POST['file_to_upload'].filename
-        base, ext = os.path.splitext(filename)
-        project = Project.get_project(request.POST['project'])
-        if not project or not project.has_access(username) \
-                or ext not in EXT_MAPPING:
-            raise KeyError
-    except (AttributeError, KeyError):
-        # TODO: Pretty up this exception handling
+        class_name, project_name = json.loads(request.POST['project'])
+        to_upload = request.POST['file_to_upload']
+        base, ext = os.path.splitext(to_upload.filename)
+        if ext not in EXT_MAPPING:
+            raise Exception('Invalid extension')
+    except Exception:
+        return HTTPBadRequest()
+
+    # Verify authorization
+    user = USERS[authenticated_userid(request)]
+    if 'admin' not in user.groups and class_name not in user.classes_dict:
+        return HTTPForbidden()
+
+    # Verify project exists
+    project = user.classes_dict[class_name].projects.get(project_name)
+    if not project:
         return HTTPBadRequest()
 
     # Compute the sha1sum of the file and build the response
-    sha1sum = sha1(file_.read()).hexdigest()
-    file_.seek(0)
+    sha1sum = sha1(to_upload.file.read()).hexdigest()
+    to_upload.file.seek(0)
     response = HTTPFound(request.route_url('submission.item',
-                                           project_id=project.name,
+                                           class_id=class_name,
+                                           project_id=project_name,
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    #if Submission.exists(project, sha1sum, username=username):
-    #    return response
+    if project.has_submission(sha1sum, add_user=user):
+        return response
     # Load the file with Kurt
     try:
-        scratch = KurtProject.load(file_, format=EXT_MAPPING[ext])
+        scratch = KurtProject.load(to_upload.file, format=EXT_MAPPING[ext])
     except Exception:  # Probably not a valid scratch file
         # TODO: Pretty up this exception handling
         return HTTPBadRequest()
     # Save the project
-    Submission.save(project, sha1sum, file_, ext, scratch, username)
+    Submission.save(project, sha1sum, to_upload.file, ext, scratch, user)
 
     # Run each plugin and append its HTML template output to the HTML result
     dir_path = os.path.join(project.path, sha1sum)
     html = []
-    for plugin_class in PLUGIN_MAPPING['broadcast']:
+    for plugin_class in PLUGIN_MAPPING['sequential']:
         plugin = plugin_class()
         results = plugin._process(scratch)
         html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
@@ -73,10 +82,8 @@ def submission_create(request):
 @view_config(route_name='submission.create', permission='create',
              renderer='octopi:templates/form_submit.pt')
 def submission_form(request):
-    username = authenticated_userid(request)
-    projects = sorted((x.name for x in Project.get_user_projects(username)),
-                      key=alphanum_key)
-    return {'projects': projects}
+    projects = USERS[authenticated_userid(request)].get_projects()
+    return {'projects': sorted(projects, key=lambda x: x.display_name)}
 
 
 @view_config(route_name='submission.item', request_method='GET',
@@ -90,13 +97,14 @@ def submission_item(submission, request):
 @view_config(route_name='submission', request_method='GET', permission='list',
              renderer='octopi:templates/submission_list.pt')
 def submission_list(request):
-    username = authenticated_userid(request)
+    user = USERS[authenticated_userid(request)]
     owned = []
+    projects = user.get_projects()
     subs_by_prod = {}
-    for project in Project.get_user_projects(username):
-        if username in project.owners:
+    for project in projects:
+        if project.class_.name in user.owner_of:
             owned.append(project.name)
-        submissions = project.get_user_submissions(username)
+        submissions = project.get_submissions(user)
         if submissions:
             subs_by_prod[project.name] = submissions
     projects = sorted(subs_by_prod, key=alphanum_key)
