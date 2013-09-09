@@ -62,8 +62,8 @@ class Class(object):
         for username in settings['students']:
             USERS[username].make_student(self)
             self.students.add(USERS[username])
-        for project_name in settings['projects']:
-            project = Project(project_name, self)
+        for project_name, plugin in settings['projects'].items():
+            project = Project(project_name, plugin, self)
             self.projects[project.name] = project
             # Create the project directory if it does not exist
             path = os.path.join(STORAGE_PATH, name, project.name)
@@ -93,8 +93,9 @@ class Project(object):
     def path(self):
         return os.path.join(STORAGE_PATH, self.class_.name, self.name)
 
-    def __init__(self, name, class_):
+    def __init__(self, name, plugin, class_):
         self.name = name.replace('/', '\\')
+        self.plugin = plugin
         self.class_ = class_
 
     def __getitem__(self, key):

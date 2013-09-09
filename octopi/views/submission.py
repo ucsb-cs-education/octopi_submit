@@ -71,13 +71,13 @@ def submission_create(request):
     # Run each plugin and append its HTML template output to the HTML result
     dir_path = os.path.join(project.path, sha1sum)
     html = []
-    for plugin_class in PLUGIN_MAPPING['sequential']:
-        plugin = plugin_class()
-        try:
+    try:
+        for plugin_class in PLUGIN_MAPPING[project.plugin]:
+            plugin = plugin_class()
             results = plugin._process(scratch)
             html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
-        except:
-            html.append('<pre>{}</pre>'.format(traceback.format_exc()))
+    except:
+        html.append('<pre>{}</pre>'.format(traceback.format_exc()))
     with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
         fp.write('\n'.join(html))
     return response
