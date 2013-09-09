@@ -27,7 +27,7 @@ class User(object):
         self.password = password
         self.owner_of = set()
         self.student_of = set()
-        self.groups = []
+        self.groups = ['admin'] if username.startswith('admin_') else []
 
     def make_owner(self, class_):
         self.owner_of.add(class_)
@@ -36,6 +36,9 @@ class User(object):
         self.student_of.add(class_)
 
     def get_projects(self):
+        if 'admin' in self.groups:
+            return [x for class_ in CLASSES.values()
+                    for x in class_.projects.values()]
         return [x for class_ in self.classes
                 for x in class_.projects.values()]
 
@@ -60,9 +63,10 @@ class Class(object):
             USERS[username].make_student(self)
             self.students.add(USERS[username])
         for project_name in settings['projects']:
-            self.projects[project_name] = Project(project_name, self)
+            project = Project(project_name, self)
+            self.projects[project.name] = project
             # Create the project directory if it does not exist
-            path = os.path.join(STORAGE_PATH, name, project_name)
+            path = os.path.join(STORAGE_PATH, name, project.name)
             if not os.path.isdir(path):
                 os.mkdir(path)
 
@@ -90,7 +94,7 @@ class Project(object):
         return os.path.join(STORAGE_PATH, self.class_.name, self.name)
 
     def __init__(self, name, class_):
-        self.name = name
+        self.name = name.replace('/', '\\')
         self.class_ = class_
 
     def __getitem__(self, key):
@@ -123,9 +127,6 @@ class Project(object):
             return submissions
         return [s for s in submissions if user.username in s.owners]
 
-    def has_access(self, user):
-        return 'admin' in user.groups or self.class_.name in user.classes
-
     def has_submission(self, sha1sum, add_user=None):
         path = os.path.join(self.path, sha1sum)
         if not os.path.isdir(path):
@@ -144,7 +145,8 @@ class Submission(object):
 
     @property
     def __acl__(self):
-        return [(Allow, x, 'view') for x in self.owners]
+        return ([(Allow, x, 'view') for x in self.owners]
+                + [(Allow, 'g:admin', ALL_PERMISSIONS)])
 
     @classmethod
     def get_submission(cls, project, sha1sum):
@@ -262,9 +264,9 @@ CLASSES = {}
 def _initialize():
     # users.json is a simple mapping between users and password
     # convert to a more usable internal format
-    for user, password in json.load(open(os.path.join(STORAGE_PATH,
-                                                      'users.json'))):
-        USERS[user] = User(user, password)
+    users = json.load(open(os.path.join(STORAGE_PATH, 'users.json')))
+    for user in users:
+        USERS[user] = User(user, users[user])
 
     # Update users dictionary to list the classes they belong to
     for filename in os.listdir(STORAGE_PATH):

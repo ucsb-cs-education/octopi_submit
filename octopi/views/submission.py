@@ -7,9 +7,10 @@ from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.security import authenticated_userid
 from pyramid.view import view_config
 from ..helpers import alphanum_key
-from ..models import Submission, USERS
+from ..models import CLASSES, Submission, USERS
 import json
 import os
+import traceback
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 
@@ -43,7 +44,7 @@ def submission_create(request):
         return HTTPForbidden()
 
     # Verify project exists
-    project = user.classes_dict[class_name].projects.get(project_name)
+    project = CLASSES[class_name].projects.get(project_name)
     if not project:
         return HTTPBadRequest()
 
@@ -72,8 +73,11 @@ def submission_create(request):
     html = []
     for plugin_class in PLUGIN_MAPPING['sequential']:
         plugin = plugin_class()
-        results = plugin._process(scratch)
-        html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
+        try:
+            results = plugin._process(scratch)
+            html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
+        except:
+            html.append('<pre>{}</pre>'.format(traceback.format_exc()))
     with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
         fp.write('\n'.join(html))
     return response
