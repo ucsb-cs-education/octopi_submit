@@ -5,4 +5,16 @@
     <img src="${thumbnail_url}">
     <div tal:content="structure content"></div>
   </div>
+  <div metal:fill-slot="eof_content">
+    <link rel="stylesheet" href="//blob8108.github.io/scratchblocks2/scratchblocks2.css">
+    <script src="//blob8108.github.io/scratchblocks2/scratchblocks2.js"></script>
+
+    <script>
+      $(document).ready(function() {
+          scratchblocks2.parse("pre.blocks");
+          scratchblocks2.parse("pre.hidden");
+          scratchblocks2.parse("pre.error");
+      })
+    </script>
+  </div>
 </metal:block>
