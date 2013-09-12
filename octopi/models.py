@@ -1,3 +1,4 @@
+from hashlib import sha1
 from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL,
                               authenticated_userid)
 import json
@@ -128,7 +129,7 @@ class Project(object):
             return submissions
         return [s for s in submissions if user.username in s.owners]
 
-    def has_submission(self, sha1sum, add_user=None):
+    def has_submission(self, sha1sum, add_user=None, zip_file=None):
         path = os.path.join(self.path, sha1sum)
         if not os.path.isdir(path):
             return False
@@ -136,6 +137,10 @@ class Project(object):
         if add_user:
             submission = Submission(self, sha1sum)
             submission.make_owner(add_user)
+        # Save zip file if provided
+        if zip_file:
+            Submission.save_zip_file(path, zip_file)
+        return True
 
 
 class Submission(object):
@@ -166,7 +171,7 @@ class Submission(object):
         return cls(project, sha1sum, open(owner_path).read().split())
 
     @classmethod
-    def save(cls, project, sha1sum, file_, ext, scratch, user):
+    def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file):
         dir_path = os.path.join(project.path, sha1sum)
         tmp_dir_path = dir_path + '~'
         if os.path.isdir(tmp_dir_path):
@@ -176,9 +181,11 @@ class Submission(object):
         os.mkdir(tmp_dir_path)
         # Save a copy of the file
         file_.seek(0)
-        with open(os.path.join(tmp_dir_path, cls.SCRATCH_FILENAME.format(ext)),
-                  'wb') as fp:
-            fp.write(file_.read())
+        dst_file = open(os.path.join(tmp_dir_path,
+                                     cls.SCRATCH_FILENAME.format(ext)), 'w')
+        shutil.copyfileobj(file_, dst_file)
+        # Save a copy of the zipfile if it exists
+        cls.save_zip_file(tmp_dir_path, zip_file)
         # Save the thumbnail
         scratch.thumbnail.save(os.path.join(tmp_dir_path, cls.THUMB_FILENAME))
         # Rename the directory (everything worked!)
@@ -188,6 +195,15 @@ class Submission(object):
         # Add the owner after the folder has been renamed
         submission = Submission(project, sha1sum, create=True)
         submission.make_owner(user)
+
+    @classmethod
+    def save_zip_file(cls, dir_path, zip_file):
+        zip_file.seek(0)
+        zip_sum = sha1(zip_file.read()).hexdigest()
+        path = os.path.join(dir_path, 'history_{}.zip').format(zip_sum)
+        if not os.path.exists(path):
+            zip_file.seek(0)
+            shutil.copyfileobj(zip_file, open(path, 'w'))
 
     def __init__(self, project, sha1sum, create=False):
         self.project = project

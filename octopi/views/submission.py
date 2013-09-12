@@ -35,7 +35,9 @@ def submission_create(request):
         class_name, project_name = json.loads(request.POST['project'])
         to_upload = request.POST['file_to_upload']
         base, ext = os.path.splitext(to_upload.filename)
+        zip_file = None
         if ext == '.zip':  # Attempt to read as zip and look for project.oct
+            zip_file = to_upload.file
             with ZipFile(to_upload.file) as zfp:
                 to_upload.file = StringIO(zfp.open('project.oct').read())
                 to_upload.file.seek(0)
@@ -64,8 +66,8 @@ def submission_create(request):
                                            submission_id=sha1sum))
 
     # Check to see if we've already processed this file
-    if project.has_submission(sha1sum, add_user=user):
-        pass  # For now re-process the submission
+    if project.has_submission(sha1sum, add_user=user, zip_file=zip_file):
+        pass  # For now re-process the submission (loses history)
         #return response
     # Load the file with Kurt
     try:
@@ -74,7 +76,8 @@ def submission_create(request):
         # TODO: Pretty up this exception handling
         return HTTPBadRequest()
     # Save the project
-    Submission.save(project, sha1sum, to_upload.file, ext, scratch, user)
+    Submission.save(project, sha1sum, to_upload.file, ext, scratch, user,
+                    zip_file)
 
     # Run each plugin and append its HTML template output to the HTML result
     dir_path = os.path.join(project.path, sha1sum)
