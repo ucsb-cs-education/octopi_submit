@@ -1,3 +1,4 @@
+from cStringIO import StringIO
 from hashlib import sha1
 from kelp.kelpplugin import KelpPlugin
 from kelp.offline import (htmlwrappers as HTML_WRAPPERS,
@@ -6,6 +7,7 @@ from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.security import authenticated_userid
 from pyramid.view import view_config
+from zipfile import ZipFile
 from ..helpers import alphanum_key
 from ..models import CLASSES, Submission, USERS
 import json
@@ -33,7 +35,12 @@ def submission_create(request):
         class_name, project_name = json.loads(request.POST['project'])
         to_upload = request.POST['file_to_upload']
         base, ext = os.path.splitext(to_upload.filename)
-        if ext not in EXT_MAPPING:
+        if ext == '.zip':  # Attempt to read as zip and look for project.oct
+            with ZipFile(to_upload.file) as zfp:
+                to_upload.file = StringIO(zfp.open('project.oct').read())
+                to_upload.file.seek(0)
+                ext = '.oct'
+        elif ext not in EXT_MAPPING:
             raise Exception('Invalid extension')
     except Exception:
         return HTTPBadRequest()
@@ -58,7 +65,8 @@ def submission_create(request):
 
     # Check to see if we've already processed this file
     if project.has_submission(sha1sum, add_user=user):
-        return response
+        pass  # For now re-process the submission
+        #return response
     # Load the file with Kurt
     try:
         scratch = KurtProject.load(to_upload.file, format=EXT_MAPPING[ext])
