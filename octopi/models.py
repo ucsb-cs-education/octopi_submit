@@ -185,7 +185,8 @@ class Submission(object):
                                      cls.SCRATCH_FILENAME.format(ext)), 'w')
         shutil.copyfileobj(file_, dst_file)
         # Save a copy of the zipfile if it exists
-        cls.save_zip_file(tmp_dir_path, zip_file)
+        if zip_file:
+            cls.save_zip_file(tmp_dir_path, zip_file)
         # Save the thumbnail
         scratch.thumbnail.save(os.path.join(tmp_dir_path, cls.THUMB_FILENAME))
         # Rename the directory (everything worked!)
@@ -227,6 +228,13 @@ class Submission(object):
     def get_thumbnail_url(self, request):
         return request.static_url(os.path.join(self.project.path, self.sha1sum,
                                                self.THUMB_FILENAME))
+
+    def get_download_url(self, request):
+        for ext in ('.oct', '.sb', '.sb2', '.zip'):
+            path = os.path.join(self.project.path, self.sha1sum, 'file' + ext)
+            if os.path.exists(path):
+                return request.static_url(path)
+        raise Exception('No download URL available.')
 
     def get_url(self, request):
         return request.route_url('submission.item',

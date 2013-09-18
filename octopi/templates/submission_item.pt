@@ -2,6 +2,7 @@
   <div metal:fill-slot="content">
     <h3>Submission: ${submission.sha1sum}</h3>
     <p>Created at: ${submission.pretty_created_at}</p>
+    <p><a href="${submission.get_download_url(request)}">Download</a></p>
     <img src="${thumbnail_url}">
     <div tal:content="structure content"></div>
   </div>
