@@ -36,7 +36,7 @@ def submission_create(request):
         to_upload = request.POST['file_to_upload']
         base, ext = os.path.splitext(to_upload.filename)
         zip_file = None
-        if ext == '.zip':  # Attempt to read as zip and look for project.oct
+        if ext == '.octx':  # Attempt to read as zip and look for project.oct
             zip_file = to_upload.file
             with ZipFile(to_upload.file) as zfp:
                 to_upload.file = StringIO(zfp.open('project.oct').read())
