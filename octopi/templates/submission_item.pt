@@ -1,6 +1,6 @@
 <metal:block use-macro="main_template">
   <div metal:fill-slot="content">
-    <h3>Submission: ${submission.sha1sum}</h3>
+    <h3>Submission for "${submission.project.name}"</h3>
     <p>Created at: ${submission.pretty_created_at}</p>
     <p><a href="${submission.get_download_url(request)}">Download</a></p>
     <img src="${thumbnail_url}">

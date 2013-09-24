@@ -1,9 +1,19 @@
 from pyramid.authentication import AuthTktAuthenticationPolicy
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.config import Configurator
+from pyramid.security import unauthenticated_userid
 from pyramid.session import UnencryptedCookieSessionFactoryConfig
-from .models import (ClassFactory, RootFactory,
-                     STORAGE_PATH, SubmissionFactory, groupfinder)
+from .models import (ClassFactory, RootFactory, STORAGE_PATH,
+                     SubmissionFactory, USERS)
+
+
+def get_user(request):
+    return USERS.get(unauthenticated_userid(request))
+
+
+def groupfinder(_, request):
+    if request.user:
+        return ['g:{}'.format(x) for x in request.user.groups]
 
 
 def set_routes(config):
@@ -31,6 +41,7 @@ def main(global_config, **settings):
                           authentication_policy=authn_policy,
                           authorization_policy=authz_policy,
                           session_factory=session_factory)
+    config.add_request_method(get_user, 'user', reify=True)
     config.add_static_view('data', path=STORAGE_PATH,
                            cache_max_age=3600)
     config.add_static_view('images', path='/tmp/octopi_images/',

@@ -1,6 +1,5 @@
 from hashlib import sha1
-from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL,
-                              authenticated_userid)
+from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL)
 import json
 import os
 import shutil
@@ -94,9 +93,9 @@ class Project(object):
     def path(self):
         return os.path.join(STORAGE_PATH, self.class_.name, self.name)
 
-    def __init__(self, name, plugin, class_):
+    def __init__(self, name, plugins, class_):
         self.name = name.replace('/', '\\')
-        self.plugin = plugin
+        self.plugins = plugins if isinstance(plugins, list) else [plugins]
         self.class_ = class_
 
     def __getitem__(self, key):
@@ -181,9 +180,11 @@ class Submission(object):
         os.mkdir(tmp_dir_path)
         # Save a copy of the file
         file_.seek(0)
-        dst_file = open(os.path.join(tmp_dir_path,
-                                     cls.SCRATCH_FILENAME.format(ext)), 'w')
+        filename = cls.SCRATCH_FILENAME.format(ext)
+        pretty_filename = '{}{}'.format(project.name, ext)
+        dst_file = open(os.path.join(tmp_dir_path, filename), 'w')
         shutil.copyfileobj(file_, dst_file)
+        os.symlink(filename, os.path.join(tmp_dir_path, pretty_filename))
         # Save a copy of the zipfile if it exists
         if zip_file:
             cls.save_zip_file(tmp_dir_path, zip_file)
@@ -231,7 +232,8 @@ class Submission(object):
 
     def get_download_url(self, request):
         for ext in ('.oct', '.sb', '.sb2', '.zip'):
-            path = os.path.join(self.project.path, self.sha1sum, 'file' + ext)
+            path = os.path.join(self.project.path, self.sha1sum,
+                                self.project.name + ext)
             if os.path.exists(path):
                 return request.static_url(path)
         raise Exception('No download URL available.')
@@ -274,12 +276,6 @@ class SubmissionFactory(object):
 
     def __init__(self, request):
         pass
-
-
-def groupfinder(userid, request):
-    user = USERS.get(userid)
-    if user:
-        return ['g:{}'.format(x) for x in user.groups]
 
 
 USERS = {}

@@ -5,8 +5,8 @@
       <li tal:repeat="project projects">
         <h4>${project} <span tal:condition="project in owned">(You own this project)</span></h4>
         <ul>
-          <li tal:repeat="sub subs_by_prod[project]">(${sub.pretty_created_at})
-            <a href="${sub.get_url(request)}">${sub.sha1sum}</a> (${', '.join(sub.owners)})
+          <li tal:repeat="sub subs_by_prod[project]">
+            <a href="${sub.get_url(request)}">${sub.pretty_created_at}</a> (${', '.join(sub.owners)})
           </li>
         </ul>
       </li>
