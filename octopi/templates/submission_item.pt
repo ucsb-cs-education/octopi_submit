@@ -3,7 +3,7 @@
     <h3>Submission for "${submission.project.name}"</h3>
     <p>Created at: ${submission.pretty_created_at}</p>
     <p><a href="${submission.get_download_url(request)}">Download</a></p>
-    <img src="${thumbnail_url}">
+    <p><img src="${thumbnail_url}"></p>
     <div tal:content="structure content"></div>
   </div>
   <div metal:fill-slot="eof_content">
