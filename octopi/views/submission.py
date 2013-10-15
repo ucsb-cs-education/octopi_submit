@@ -126,6 +126,13 @@ def submission_list(request):
             owned.append(project.name)
         submissions = project.get_submissions(request.user)
         if submissions:
-            subs_by_prod[project.name] = submissions
+            if project.name in subs_by_prod:
+                subs_by_prod[project.name].extend(submissions)
+            else:
+                subs_by_prod[project.name] = submissions
+
+    for key in subs_by_prod:
+        subs_by_prod[key] = sorted(subs_by_prod[key],
+                                   key=lambda x: x.created_at)
     projects = sorted(subs_by_prod, key=alphanum_key)
     return {'owned': owned, 'projects': projects, 'subs_by_prod': subs_by_prod}
