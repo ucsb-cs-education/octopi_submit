@@ -14,7 +14,8 @@ def forbidden_view(request):
 
 @view_config(route_name='login', renderer='octopi:templates/form_login.pt')
 def login(request):
-    next_path = request.params.get('next') or request.route_url('home')
+    next_path = (request.params.get('next') or
+                 request.route_url('submission.create'))
     login = ''
     failed = False
     if 'submit' in request.POST:
@@ -31,5 +32,5 @@ def login(request):
 @view_config(route_name='logout')
 def logout(request):
     headers = forget(request)
-    location = request.route_url('home')
+    location = request.route_url('login')
     return HTTPFound(location=location, headers=headers)

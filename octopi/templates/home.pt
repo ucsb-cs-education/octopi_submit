@@ -1,5 +1,0 @@
-<metal:block use-macro="main_template">
-  <div metal:fill-slot="content">
-    <h3>Home</h3>
-  </div>
-</metal:block>

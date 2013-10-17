@@ -5,15 +5,42 @@
         again.</font></p>
     <form method="post" action="${request.path}">
       <p>
-        <label for="login">Login</label><br>
+        <label for="login">Username</label><br>
         <input type="text" name="login" id="login" value="${login}">
       </p>
       <p>
         <label for="passwd">Password</label><br>
-        <input type="password" name="passwd" id="passwd">
+        <input type="password" name="passwd" id="passwd" class="showpassword">
       </p>
       <input type="hidden" name="next" value="${next}">
       <input type="submit" name="submit" value="Login">
     </form>
   </div>
+
+  <div metal:fill-slot="eof_content">
+    <script>
+      $(document).ready(function() {
+          $(function(){
+              $(".showpassword").each(function(index,input) {
+                  var $input = $(input);
+                  $('<label class="showpasswordlabel"/>').append(
+                      $("<input type='checkbox' class='showpasswordcheckbox' />").click(function() {
+                          var change = $(this).is(":checked") ? "text" : "password";
+                          var rep = $("<input type='" + change + "' />")
+                              .attr("id", $input.attr("id"))
+                              .attr("name", $input.attr("name"))
+                              .attr('class', $input.attr('class'))
+                              .val($input.val())
+                              .insertBefore($input);
+                          $input.remove();
+                          $input = rep;
+                      })
+                  ).append($("<span/>").text("Show password")).insertAfter($input);
+              });
+          });
+      })
+    </script>
+  </div>
+
+
 </metal:block>
