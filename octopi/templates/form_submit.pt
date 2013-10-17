@@ -1,6 +1,15 @@
 <metal:block use-macro="main_template">
   <div metal:fill-slot="content">
     <h3>Make a Submission</h3>
+
+    <h4>Instructions</h4>
+    <ol>
+      <li>Click the "Choose File" button to choose your file to submit.</li>
+      <li>Click the drop-down box and choose the appropriate project.</li>
+      <li>Click the "Upload" button to submit your work.</li>
+      <li>Smile, you are done!</li>
+    </ol>
+
     <form enctype="multipart/form-data" method="POST" action="${request.route_url('submission')}">
       <p>
         <label for="file_to_upload">Select a File to Upload</label>
