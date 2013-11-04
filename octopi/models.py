@@ -50,6 +50,7 @@ class Class(object):
 
     def __init__(self, name, settings):
         self.name = name
+        self.display_name = settings.get('name', name)
         self.owners = set()
         self.students = set()
         self.projects = {}

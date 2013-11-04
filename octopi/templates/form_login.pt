@@ -5,37 +5,62 @@
         again.</font></p>
     <form method="post" action="${request.path}">
       <p>
-        <label for="login">Username</label><br>
-        <input type="text" name="login" id="login" value="${login}">
+        <label for="class_select">Class Selection</label>
+        <select id="class_select">
+          <option value="">Select a class</option>
+          <option tal:repeat="class_name classes" value="${class_name}">${class_name}</option>
+          <option value="_manual_">[Manual Entry]</option>
+        </select>
       </p>
-      <p>
-        <label for="passwd">Password</label><br>
-        <input type="password" name="passwd" id="passwd" class="showpassword">
-      </p>
-      <input type="hidden" name="next" value="${next}">
-      <input type="submit" name="submit" value="Login">
+      <div id="info_display" style="display: None">
+        <div id="login_prompt">
+        </div>
+        <p>
+          <label for="passwd" id="passwd_label"></label>
+          <span id="passwd_input"></span>
+        </p>
+        <input type="hidden" name="next" value="${next}">
+        <input type="submit" name="submit" value="Login">
+      </div>
     </form>
+
+    <script>
+      var data = ${structure: data};
+    </script>
+
   </div>
 
   <div metal:fill-slot="eof_content">
     <script>
       $(document).ready(function() {
           $(function(){
-              $(".showpassword").each(function(index,input) {
-                  var $input = $(input);
-                  $('<label class="showpasswordlabel"/>').append(
-                      $("<input type='checkbox' class='showpasswordcheckbox' />").click(function() {
-                          var change = $(this).is(":checked") ? "text" : "password";
-                          var rep = $("<input type='" + change + "' />")
-                              .attr("id", $input.attr("id"))
-                              .attr("name", $input.attr("name"))
-                              .attr('class', $input.attr('class'))
-                              .val($input.val())
-                              .insertBefore($input);
-                          $input.remove();
-                          $input = rep;
-                      })
-                  ).append($("<span/>").text("Show password")).insertAfter($input);
+              $("#class_select").change(function() {
+                  var selection = $(this).val();
+                  if (selection == '') {
+                      $("#info_display").hide();
+                      return;
+                  }
+                  else if (selection == '_manual_') {
+                      $("#login_prompt").empty();
+                      $("#login_prompt").append($('<p><label for="login">Username</label> <input type="text" name="login" id="login"></p>'));
+                      $("#passwd_label").text('Password');
+                      $("#passwd_input").empty();
+                      $("#passwd_input").append($('<input type="password" name="passwd" id="passwd">'));
+                      $("#info_display").show();
+                      return;
+                  }
+                  $("#info_display").show();
+                  $("#login_prompt").empty();
+                  $("#login_prompt").append($('<p><label for="username_select">User Selection</label> <select id="username_select" name="login"></select></p>'));
+                  $("#passwd_label").text('Verification Code');
+                  $("#passwd_input").empty();
+                  $("#passwd_input").append($('<input type="text" name="passwd" id="passwd">'));
+                  var dropdown = $("#username_select");
+                  dropdown.empty();
+                  dropdown.append($('<option value="">Select a username</option>'));
+                  data[selection].forEach(function(item) {
+                      dropdown.append($('<option value="' + item[1] + '">' + item[0] + '</option>'));
+                  });
               });
           });
       })

@@ -1,7 +1,9 @@
+from collections import defaultdict
 from pyramid.httpexceptions import HTTPForbidden, HTTPFound
 from pyramid.security import forget, remember
 from pyramid.view import forbidden_view_config, view_config
 from ..models import USERS
+import json
 
 
 @forbidden_view_config()
@@ -26,7 +28,19 @@ def login(request):
             headers = remember(request, login)
             return HTTPFound(location=next_path, headers=headers)
         failed = True
-    return {'login': login, 'next': next_path, 'failed': failed}
+
+    class_to_user = defaultdict(list)
+    for user in USERS.values():
+        name = user.username
+        if name[-2:].isdigit():
+            name = name[-2:]
+        for class_ in user.classes:
+            class_to_user[class_.display_name].append((name, user.username))
+            class_to_user[class_.display_name].sort()
+
+    return {'classes': sorted(class_to_user),
+            'data': json.dumps(class_to_user),
+            'next': next_path, 'failed': failed}
 
 
 @view_config(route_name='logout')
