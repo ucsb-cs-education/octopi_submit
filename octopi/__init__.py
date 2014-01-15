@@ -32,10 +32,14 @@ def set_routes(config):
 
 def main(global_config, **settings):
     """ This function returns a Pyramid WSGI application."""
-    authn_policy = AuthTktAuthenticationPolicy('<SECRET>',
-                                               callback=groupfinder)
+    authn_policy = AuthTktAuthenticationPolicy(secret=settings['auth_secret'],
+                                               callback=groupfinder,
+                                               secure=True, include_ip=False,
+                                               hashalg='sha512',
+                                               wild_domain=False)
     authz_policy = ACLAuthorizationPolicy()
-    session_factory = UnencryptedCookieSessionFactoryConfig('<COOKIE_SECRET>')
+    session_factory = UnencryptedCookieSessionFactoryConfig(
+        settings['cookie_secret'])
     config = Configurator(settings=settings,
                           root_factory=RootFactory,
                           authentication_policy=authn_policy,
