@@ -15,14 +15,7 @@
         <label for="file_to_upload">Select a File to Upload</label>
         <input type="file" name="file_to_upload" id="file_to_upload">
       </p>
-      <p>
-        <select tal:condition="len(request.user.groups) or len(request.user.classes) > 1" name="project">
-          <option tal:repeat="project projects" value="${project.form_name}">${project.display_name}</option>
-        </select>
-        <select tal:condition="not len(request.user.groups) and len(request.user.classes) <= 1" name="project">
-          <option tal:repeat="project projects" value="${project.form_name}">${project.name}</option>
-        </select>
-      </p>
+      <input type="hidden" name="project" value='["${projects[0].class_.name}", "bucket"]'>
       <input type="submit" value="Upload">
     </form>
   </div>
