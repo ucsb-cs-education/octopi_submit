@@ -77,9 +77,11 @@ def submission_create(request):
     Submission.save(project, sha1sum, to_upload.file, ext, scratch,
                     request.user, zip_file, save_name=to_upload.filename)
 
-    # Run each plugin and append its HTML template output to the HTML result
+    # Write the results (nothing to save anymore)
     dir_path = os.path.join(project.path, sha1sum)
     open(os.path.join(dir_path, 'results.html'), 'w').close()
+    # Save the flash message
+    request.session.flash('Thanks for submitting your project!')
     return response
 
 
@@ -95,7 +97,8 @@ def submission_form(request):
 def submission_item(submission, request):
     return {'submission': submission,
             'content': submission.get_results(),
-            'thumbnail_url': submission.get_thumbnail_url(request)}
+            'thumbnail_url': submission.get_thumbnail_url(request),
+            'flash': request.session.pop_flash()}
 
 
 @view_config(route_name='submission', request_method='GET', permission='list',
