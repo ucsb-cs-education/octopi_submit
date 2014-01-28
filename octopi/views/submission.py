@@ -78,7 +78,7 @@ def submission_create(request):
         return HTTPBadRequest()
     # Save the project
     Submission.save(project, sha1sum, to_upload.file, ext, scratch,
-                    request.user, zip_file)
+                    request.user, zip_file, save_name=to_upload.filename)
 
     # Run each plugin and append its HTML template output to the HTML result
     dir_path = os.path.join(project.path, sha1sum)

@@ -171,7 +171,8 @@ class Submission(object):
         return cls(project, sha1sum, open(owner_path).read().split())
 
     @classmethod
-    def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file):
+    def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file,
+             save_name=None):
         dir_path = os.path.join(project.path, sha1sum)
         tmp_dir_path = dir_path + '~'
         if os.path.isdir(tmp_dir_path):
@@ -186,9 +187,15 @@ class Submission(object):
         dst_file = open(os.path.join(tmp_dir_path, filename), 'w')
         shutil.copyfileobj(file_, dst_file)
         os.symlink(filename, os.path.join(tmp_dir_path, pretty_filename))
+        if not zip_file and save_name and save_name != filename:
+            os.symlink(filename, os.path.join(tmp_dir_path, save_name))
         # Save a copy of the zipfile if it exists
         if zip_file:
-            cls.save_zip_file(tmp_dir_path, zip_file)
+            zip_path = cls.save_zip_file(tmp_dir_path, zip_file)
+            zip_name = os.path.basename(zip_path)
+            if save_name and save_name != zip_name:
+                os.symlink(zip_path, os.path.join(tmp_dir_path, save_name))
+
         # Save the thumbnail
         scratch.thumbnail.save(os.path.join(tmp_dir_path, cls.THUMB_FILENAME))
         # Rename the directory (everything worked!)
@@ -207,6 +214,7 @@ class Submission(object):
         if not os.path.exists(path):
             zip_file.seek(0)
             shutil.copyfileobj(zip_file, open(path, 'w'))
+        return path
 
     def __init__(self, project, sha1sum, create=False):
         self.project = project
