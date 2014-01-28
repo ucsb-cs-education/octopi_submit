@@ -1,9 +1,6 @@
 from cStringIO import StringIO
 from hashlib import sha1
-from itertools import chain
 from kelp.kelpplugin import KelpPlugin
-from kelp.offline import (htmlwrappers as HTML_WRAPPERS,
-                          plugins as PLUGIN_MAPPING)
 from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.view import view_config
@@ -11,8 +8,8 @@ from zipfile import ZipFile
 from ..helpers import alphanum_key
 from ..models import CLASSES, Submission
 import json
+import kelp.offline  # Required to load octx
 import os
-import traceback
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 
@@ -82,21 +79,7 @@ def submission_create(request):
 
     # Run each plugin and append its HTML template output to the HTML result
     dir_path = os.path.join(project.path, sha1sum)
-    html = []
-    try:
-        plugins = chain(*(PLUGIN_MAPPING[x] for x in project.plugins))
-        for plugin_class in plugins:
-            plugin = plugin_class()
-            results = plugin._process(scratch)
-            html.append(HTML_WRAPPERS[plugin.__class__.__name__](results))
-    except:
-        html.append('<div class="alert alert-danger">There was an error '
-                    'processing your submission. Please notify your teacher.'
-                    '</div>')
-        html.append('<pre style="display: None">{}</pre>'
-                    .format(traceback.format_exc()))
-    with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
-        fp.write('\n'.join(html))
+    open(os.path.join(dir_path, 'results.html'), 'w').close()
     return response
 
 

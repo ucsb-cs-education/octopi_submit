@@ -5,10 +5,11 @@
     <h4>Instructions</h4>
     <ol>
       <li>Click the "Choose File" button to choose your file to submit.</li>
-      <li>Click the drop-down box and choose the appropriate project.</li>
       <li>Click the "Upload" button to submit your work.</li>
       <li>Smile, you are done!</li>
     </ol>
+
+    <hr>
 
     <form enctype="multipart/form-data" method="POST" action="${request.route_url('submission')}">
       <p>
