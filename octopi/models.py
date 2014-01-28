@@ -242,7 +242,7 @@ class Submission(object):
     def get_download_url(self, request):
         for ext in ('.oct', '.sb', '.sb2', '.zip'):
             path = os.path.join(self.project.path, self.sha1sum,
-                                self.project.name + ext)
+                                'file' + ext)
             if os.path.exists(path):
                 return request.static_url(path)
         raise Exception('No download URL available.')
