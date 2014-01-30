@@ -5,7 +5,6 @@ from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.view import view_config
 from zipfile import ZipFile
-from ..helpers import alphanum_key
 from ..models import CLASSES, Submission
 import json
 import kelp.offline  # Required to load octx
@@ -118,21 +117,8 @@ def submission_list(request):
             retval.append((date, group))
         return retval
 
-    owned = []
-    projects = request.user.get_projects()
-    subs_by_prod = {}
-    for project in projects:
-        if project.class_.name in request.user.owner_of:
-            owned.append(project.name)
-        submissions = project.get_submissions(request.user)
-        if submissions:
-            if project.name in subs_by_prod:
-                subs_by_prod[project.name].extend(submissions)
-            else:
-                subs_by_prod[project.name] = submissions
+    subs = []
+    for project in request.user.get_projects():
+        subs.extend(project.get_submissions(request.user))
 
-    for key in subs_by_prod:
-        subs_by_prod[key] = group_by_date(subs_by_prod[key])
-
-    projects = sorted(subs_by_prod, key=alphanum_key)
-    return {'owned': owned, 'projects': projects, 'subs_by_prod': subs_by_prod}
+    return {'sub_groups': group_by_date(subs)}
