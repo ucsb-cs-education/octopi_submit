@@ -104,6 +104,20 @@ def submission_item(submission, request):
 @view_config(route_name='submission', request_method='GET', permission='list',
              renderer='octopi:templates/submission_list.pt')
 def submission_list(request):
+    def group_by_date(items):
+        date = None
+        group = []
+        retval = []
+        for item in sorted(items, reverse=True, key=lambda x: x.created_at):
+            if date and item.created_at.date() != date:
+                retval.append((date, group))
+                group = []
+            date = item.created_at.date()
+            group.append(item)
+        if group:
+            retval.append((date, group))
+        return retval
+
     owned = []
     projects = request.user.get_projects()
     subs_by_prod = {}
@@ -118,7 +132,7 @@ def submission_list(request):
                 subs_by_prod[project.name] = submissions
 
     for key in subs_by_prod:
-        subs_by_prod[key] = sorted(subs_by_prod[key],
-                                   key=lambda x: x.created_at)
+        subs_by_prod[key] = group_by_date(subs_by_prod[key])
+
     projects = sorted(subs_by_prod, key=alphanum_key)
     return {'owned': owned, 'projects': projects, 'subs_by_prod': subs_by_prod}

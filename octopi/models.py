@@ -1,3 +1,4 @@
+from datetime import datetime
 from hashlib import sha1
 from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL)
 import json
@@ -224,12 +225,12 @@ class Submission(object):
         else:
             path = os.path.join(project.path, sha1sum, self.OWNERS_FILENAME)
             self.owners = set(json.load(open(path)))
-        self.created_at = os.path.getctime(os.path.join(project.path,
-                                                        sha1sum))
+        self.created_at = datetime.fromtimestamp(
+            os.path.getmtime(os.path.join(project.path, sha1sum)))
 
     @property
     def pretty_created_at(self):
-        return time.ctime(self.created_at)
+        return time.ctime(time.mktime(self.created_at.timetuple()))
 
     def get_results(self):
         return open(os.path.join(self.project.path, self.sha1sum,

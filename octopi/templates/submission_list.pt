@@ -1,15 +1,18 @@
 <metal:block use-macro="main_template">
   <div metal:fill-slot="content">
     <h3>Submissions</h3>
-    <ul tal:condition="projects">
-      <li tal:repeat="project projects">
-        <h4>${project} <span tal:condition="project in owned">(You own this project)</span></h4>
-        <ul>
-          <li tal:repeat="sub subs_by_prod[project]">
-            <a href="${sub.get_url(request)}">${sub.pretty_created_at}</a> (${', '.join(sub.owners)})
-          </li>
-        </ul>
-      </li>
-    </ul>
+    <div tal:repeat="project projects">
+      <h4>${project} <span tal:condition="project in owned">(You own this project)</span></h4>
+      <ul>
+        <li tal:repeat="(date, subs) subs_by_prod[project]">
+          <strong>${date}</strong>
+          <ul>
+            <li tal:repeat="sub subs">
+              <a href="${sub.get_url(request)}">${sub.pretty_created_at}</a> (${', '.join(sub.owners)})
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
   </div>
 </metal:block>
