@@ -5,7 +5,7 @@
         again.</font></p>
     <form method="post" action="${request.path}">
       <p>
-        <label for="class_select">Class Selection</label>
+        <label for="class_select">Select your class</label>
         <select id="class_select">
           <option value="">Select a class</option>
           <option tal:repeat="class_name classes" value="${class_name}">${class_name}</option>
@@ -51,8 +51,8 @@
                   }
                   $("#info_display").show();
                   $("#login_prompt").empty();
-                  $("#login_prompt").append($('<p><label for="username_select">User Selection</label> <select id="username_select" name="login"></select></p>'));
-                  $("#passwd_label").text('Verification Code');
+                  $("#login_prompt").append($('<p><label for="username_select">Select your number</label> <select id="username_select" name="login"></select></p>'));
+                  $("#passwd_label").text('Type in your word');
                   $("#passwd_input").empty();
                   $("#passwd_input").append($('<input type="text" name="passwd" id="passwd">'));
                   var dropdown = $("#username_select");
