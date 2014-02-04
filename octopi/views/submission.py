@@ -2,12 +2,11 @@ from cStringIO import StringIO
 from hashlib import sha1
 from kelp.kelpplugin import KelpPlugin
 from kurt import Project as KurtProject
-from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
+from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
 from pyramid.view import view_config
 from zipfile import ZipFile
-from ..models import CLASSES, Submission
-import json
-import kelp.offline  # Required to load octx
+from ..models import CLASSES, PROJECTS, Submission
+import kelp.offline  # noqa
 import os
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
@@ -28,9 +27,8 @@ KelpPlugin.get_paths = staticmethod(_get_paths)
 def submission_create(request):
     # Validate fields
     try:
-        class_name, project_name = json.loads(request.POST['project'])
         to_upload = request.POST['file_to_upload']
-        base, ext = os.path.splitext(to_upload.filename)
+        project_name, ext = os.path.splitext(to_upload.filename)
         zip_file = None
         if ext == '.octx':  # Attempt to read as zip and look for project.oct
             zip_file = to_upload.file
@@ -43,15 +41,15 @@ def submission_create(request):
     except Exception:
         return HTTPBadRequest()
 
-    # Verify authorization
-    if 'admin' not in request.user.groups and \
-            class_name not in request.user.classes_dict:
-        return HTTPForbidden()
-
-    # Verify project exists
-    project = CLASSES[class_name].projects.get(project_name)
-    if not project:
+    # Submit to the first class the user is a member of
+    if not request.user.classes_dict:
         return HTTPBadRequest()
+    class_name = request.user.classes_dict.keys()[0]
+
+    # Find the appropriate project
+    if project_name not in PROJECTS:
+        project_name = '_OTHER_'
+    project = CLASSES[class_name].projects[project_name]
 
     # Compute the sha1sum of the file and build the response
     sha1sum = sha1(to_upload.file.read()).hexdigest()
@@ -64,8 +62,7 @@ def submission_create(request):
     # Check to see if we've already processed this file
     if project.has_submission(sha1sum, add_user=request.user,
                               zip_file=zip_file):
-        pass  # For now re-process the submission (loses history)
-        #return response
+        return response
     # Load the file with Kurt
     try:
         scratch = KurtProject.load(to_upload.file, format=EXT_MAPPING[ext])
@@ -87,8 +84,7 @@ def submission_create(request):
 @view_config(route_name='submission.create', permission='create',
              renderer='octopi:templates/form_submit.pt')
 def submission_form(request):
-    projects = request.user.get_projects()
-    return {'projects': sorted(projects, key=lambda x: x.display_name)}
+    return {}
 
 
 @view_config(route_name='submission.item', request_method='GET',

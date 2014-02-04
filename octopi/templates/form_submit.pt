@@ -16,7 +16,6 @@
         <label for="file_to_upload">Select a File to Upload</label>
         <input type="file" name="file_to_upload" id="file_to_upload">
       </p>
-      <input type="hidden" name="project" value='["${projects[0].class_.name}", "bucket"]'>
       <input type="submit" value="Upload">
     </form>
   </div>

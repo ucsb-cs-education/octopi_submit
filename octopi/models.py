@@ -10,6 +10,23 @@ import time
 STORAGE_PATH = '/tmp/octopi_files'
 
 
+PROJECTS = {
+    'AnimalsGame': [],
+    'AnimalRace': ['raceInitialization.raceInitialization',
+                   'raceInitialization.initialization_display'],
+    'CAGeographyBroadcast': ['geographyBroadcast.geographyBroadcast',
+                             'geographyBroadcast.geography_display'],
+    'DanceParty': ['danceParty.DancePartyProject',
+                   'danceParty.danceProj_display'],
+    'MammalsGame': ['predatorPrey.Predator', 'predatorPrey.predator_display'],
+    'PinataInitialization': [],
+    'Planets': ['planetspart1.PlanetsProjectPart1',
+                'planetspart1.planetProj_display'],
+    'PlantGrowing': ['plants.Plants', 'plants.plant_display'],
+    'Rocket': ['planetspart2.PlanetsProjectPart2',
+               'planetspart2.planetProj_display']}
+
+
 class User(object):
     @property
     def __acl__(self):
@@ -64,13 +81,11 @@ class Class(object):
         for username in settings['students']:
             USERS[username].make_student(self)
             self.students.add(USERS[username])
-        for project_name, plugin in settings['projects'].items():
+        for project_name, plugin in PROJECTS.items():
             project = Project(project_name, plugin, self)
             self.projects[project.name] = project
-            # Create the project directory if it does not exist
-            path = os.path.join(STORAGE_PATH, name, project.name)
-            if not os.path.isdir(path):
-                os.mkdir(path)
+        # CATCH ALL PROJECT
+        self.projects['_OTHER_'] = Project('_OTHER_', [], self)
 
     def __getitem__(self, project_id):
         return self.projects[project_id]
@@ -82,10 +97,6 @@ class Project(object):
         acl = [(Allow, Authenticated, 'submit')] +\
             [(Allow, x.username, 'view') for x in self.class_.viewers]
         return acl
-
-    @property
-    def display_name(self):
-        return '({}) {}'.format(self.class_.name, self.name)
 
     @property
     def form_name(self):
@@ -117,6 +128,10 @@ class Project(object):
         else:
             owner = True  # No user specified, fetch all submissions
 
+        # Directory not created means there are no submissions
+        if not os.path.isdir(self.path):
+            return []
+
         # Build the list of submissions
         submissions = []
         for filename in os.listdir(self.path):
@@ -131,6 +146,9 @@ class Project(object):
         return [s for s in submissions if user.username in s.owners]
 
     def has_submission(self, sha1sum, add_user=None, zip_file=None):
+        # Create project directory if it does not exist
+        if add_user and not os.path.isdir(self.path):
+            os.mkdir(self.path)
         path = os.path.join(self.path, sha1sum)
         if not os.path.isdir(path):
             return False
@@ -169,7 +187,8 @@ class Submission(object):
                 break
         else:
             return False
-        return cls(project, sha1sum, open(owner_path).read().split())
+        with open(owner_path) as fp:
+            return cls(project, sha1sum, fp.read().split())
 
     @classmethod
     def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file,
@@ -185,8 +204,8 @@ class Submission(object):
         file_.seek(0)
         filename = cls.SCRATCH_FILENAME.format(ext)
         pretty_filename = '{}{}'.format(project.name, ext)
-        dst_file = open(os.path.join(tmp_dir_path, filename), 'w')
-        shutil.copyfileobj(file_, dst_file)
+        with open(os.path.join(tmp_dir_path, filename), 'w') as fp:
+            shutil.copyfileobj(file_, fp)
         os.symlink(filename, os.path.join(tmp_dir_path, pretty_filename))
         if not zip_file and save_name and save_name != filename:
             os.symlink(filename, os.path.join(tmp_dir_path, save_name))
@@ -214,7 +233,8 @@ class Submission(object):
         path = os.path.join(dir_path, 'history_{}.zip').format(zip_sum)
         if not os.path.exists(path):
             zip_file.seek(0)
-            shutil.copyfileobj(zip_file, open(path, 'w'))
+            with open(path, 'w') as fp:
+                shutil.copyfileobj(zip_file, fp)
         return path
 
     def __init__(self, project, sha1sum, create=False):
@@ -224,7 +244,8 @@ class Submission(object):
             self.owners = set()
         else:
             path = os.path.join(project.path, sha1sum, self.OWNERS_FILENAME)
-            self.owners = set(json.load(open(path)))
+            with open(path) as fp:
+                self.owners = set(json.load(fp))
         self.created_at = datetime.fromtimestamp(
             os.path.getmtime(os.path.join(project.path, sha1sum)))
 
@@ -233,8 +254,10 @@ class Submission(object):
         return time.ctime(time.mktime(self.created_at.timetuple()))
 
     def get_results(self):
-        return open(os.path.join(self.project.path, self.sha1sum,
-                                 self.RESULTS_FILENAME)).read()
+        path = os.path.join(self.project.path, self.sha1sum,
+                            self.RESULTS_FILENAME)
+        with open(path) as fp:
+            return fp.read()
 
     def get_thumbnail_url(self, request):
         return request.static_url(os.path.join(self.project.path, self.sha1sum,
@@ -259,7 +282,7 @@ class Submission(object):
             self.owners.add(user.username)
             with open(os.path.join(self.project.path, self.sha1sum,
                                    self.OWNERS_FILENAME), 'w') as fp:
-                json.dump(list(self.owners), fp)
+                json.dump(list(self.owners), fp, indent=4, sort_keys=True)
 
 
 class ClassFactory(object):
@@ -293,9 +316,32 @@ CLASSES = {}
 
 
 def _initialize():
+    # Create the storage directory if it does not exist
+    if not os.path.isdir(STORAGE_PATH):
+        os.mkdir(STORAGE_PATH)
+        # Create Test class
+        class_path = os.path.join(STORAGE_PATH, 'TEST')
+        os.mkdir(class_path)
+        with open(os.path.join(class_path, 'settings.json'), 'w') as fp:
+            json.dump({'name': 'Test Class -- For Testing',
+                       'owners': ['instructor1'],
+                       'students': ['student00', 'student01']}, fp, indent=4,
+                      sort_keys=True)
+
+    users_path = os.path.join(STORAGE_PATH, 'users.json')
+    if not os.path.isfile(users_path):
+        # Create a users file for testing purposes
+        print('Creating {}'.format(users_path))
+        with open(users_path, 'w') as fp:
+            json.dump({'admin_test': 'admin_password',
+                       'instructor1': 'instructor1',
+                       'student00': 'zero',
+                       'student01': 'one'}, fp, indent=4, sort_keys=True)
+
     # users.json is a simple mapping between users and password
     # convert to a more usable internal format
-    users = json.load(open(os.path.join(STORAGE_PATH, 'users.json')))
+    with open(users_path) as fp:
+        users = json.load(fp)
     for user in users:
         USERS[user] = User(user, users[user])
 
@@ -303,8 +349,8 @@ def _initialize():
     for filename in os.listdir(STORAGE_PATH):
         class_path = os.path.join(STORAGE_PATH, filename)
         if os.path.isdir(class_path):
-            settings = json.load(open(os.path.join(class_path,
-                                                   'settings.json')))
+            with open(os.path.join(class_path, 'settings.json')) as fp:
+                settings = json.load(fp)
             CLASSES[filename] = Class(filename, settings)
 
 
