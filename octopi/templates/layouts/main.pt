@@ -25,7 +25,7 @@
     <metal:content define-slot="content" />
     <hr>
     <footer>
-      2013 UCSB
+      2014 UCSB
     </footer>
   </div>
 
