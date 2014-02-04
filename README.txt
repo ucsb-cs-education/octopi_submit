@@ -8,8 +8,6 @@ Getting Started
 
 - $venv/bin/python setup.py develop
 
-- $venv/bin/initialize_octopi_db development.ini
-
 - $venv/bin/pserve development.ini
 
 
