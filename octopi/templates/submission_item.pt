@@ -4,7 +4,10 @@
     <p>Created at: ${submission.pretty_created_at}</p>
     <p><a href="${submission.get_download_url(request)}">Download</a></p>
     <p><img src="${thumbnail_url}"></p>
-    <div tal:content="structure content"></div>
+    <div tal:condition="content">
+      (<a class="toggle">Toggle Feedback</a>)
+      <div style="display:None" id="pluginresults" tal:content="structure content"></div>
+    </div>
   </div>
   <div metal:fill-slot="eof_content">
     <link rel="stylesheet" href="//blob8108.github.io/scratchblocks2/scratchblocks2.css">
@@ -15,6 +18,10 @@
           scratchblocks2.parse("pre.blocks");
           scratchblocks2.parse("pre.hidden");
           scratchblocks2.parse("pre.error");
+
+          $(".toggle").click(function() {
+              $("#pluginresults").toggle(500);
+          });
       })
     </script>
   </div>
