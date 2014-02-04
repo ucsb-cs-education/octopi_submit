@@ -77,17 +77,20 @@ def submission_create(request):
     # Write the results (nothing to save anymore)
     dir_path = os.path.join(project.path, sha1sum)
     html = []
-    try:
-        for plugin_class in project.plugins:
+    exceptions = []
+    for plugin_class in project.plugins:
+        try:
             plugin = plugin_class()
             results = plugin._process(scratch)
             html.append(htmlwrappers[plugin.__class__.__name__](results))
-    except:
+        except:
+            exceptions.append(traceback.format_exc())
+    if exceptions:
         html.append('<div class="alert alert-danger">There was an error '
                     'processing your submission. Please notify your teacher.'
                     '</div>')
-        html.append('<pre style="display: None">{}</pre>'
-                    .format(traceback.format_exc()))
+        for exc in exceptions:
+            html.append('<pre style="display: None">{}</pre>'.format(exc))
     with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
         fp.write('\n'.join(html))
     # Save the flash message
