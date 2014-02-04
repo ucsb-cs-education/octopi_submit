@@ -1,5 +1,6 @@
 from datetime import datetime
 from hashlib import sha1
+from kelp.offline import plugins as PLUGINS
 from pyramid.security import (ALL_PERMISSIONS, Allow, Authenticated, DENY_ALL)
 import json
 import os
@@ -9,22 +10,16 @@ import time
 
 STORAGE_PATH = '/tmp/octopi_files'
 
-
 PROJECTS = {
     'AnimalsGame': [],
-    'AnimalRace': ['raceInitialization.raceInitialization',
-                   'raceInitialization.initialization_display'],
-    'CAGeographyBroadcast': ['geographyBroadcast.geographyBroadcast',
-                             'geographyBroadcast.geography_display'],
-    'DanceParty': ['danceParty.DancePartyProject',
-                   'danceParty.danceProj_display'],
-    'MammalsGame': ['predatorPrey.Predator', 'predatorPrey.predator_display'],
+    'AnimalRace': PLUGINS['racing'],
+    'CAGeographyBroadcast': PLUGINS['cageobcast'],
+    'DanceParty': PLUGINS['dance'],
+    'MammalsGame': PLUGINS['predator'],
     'PinataInitialization': [],
-    'Planets': ['planetspart1.PlanetsProjectPart1',
-                'planetspart1.planetProj_display'],
-    'PlantGrowing': ['plants.Plants', 'plants.plant_display'],
-    'Rocket': ['planetspart2.PlanetsProjectPart2',
-               'planetspart2.planetProj_display']}
+    'Planets': PLUGINS['part1'],
+    'PlantGrowing': PLUGINS['plants'],
+    'Rocket': PLUGINS['part2']}
 
 
 class User(object):
@@ -81,8 +76,8 @@ class Class(object):
         for username in settings['students']:
             USERS[username].make_student(self)
             self.students.add(USERS[username])
-        for project_name, plugin in PROJECTS.items():
-            project = Project(project_name, plugin, self)
+        for project_name, plugins in PROJECTS.items():
+            project = Project(project_name, plugins, self)
             self.projects[project.name] = project
         # CATCH ALL PROJECT
         self.projects['_OTHER_'] = Project('_OTHER_', [], self)
@@ -99,16 +94,12 @@ class Project(object):
         return acl
 
     @property
-    def form_name(self):
-        return json.dumps((self.class_.name, self.name))
-
-    @property
     def path(self):
         return os.path.join(STORAGE_PATH, self.class_.name, self.name)
 
     def __init__(self, name, plugins, class_):
         self.name = name.replace('/', '\\')
-        self.plugins = plugins if isinstance(plugins, list) else [plugins]
+        self.plugins = plugins
         self.class_ = class_
 
     def __getitem__(self, key):
@@ -165,7 +156,6 @@ class Project(object):
 class Submission(object):
     RESULTS_FILENAME = 'results.html'
     OWNERS_FILENAME = 'owners.json'
-    SCRATCH_FILENAME = 'file{}'
     THUMB_FILENAME = 'image.png'
 
     @property
@@ -179,11 +169,8 @@ class Submission(object):
         owner_path = os.path.join(dir_path, cls.OWNERS_FILENAME)
         if not os.path.isdir(dir_path) or not os.path.isfile(owner_path):
             return False
-        scratch_file = None
         for ext in ('.oct', '.sb', '.sb2'):
-            scratch_file = os.path.join(dir_path,
-                                        cls.SCRATCH_FILENAME.format(ext))
-            if os.path.isfile(scratch_file):
+            if os.path.isfile(os.path.join(dir_path, project.name + ext)):
                 break
         else:
             return False
@@ -191,8 +178,7 @@ class Submission(object):
             return cls(project, sha1sum, fp.read().split())
 
     @classmethod
-    def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file,
-             save_name=None):
+    def save(cls, project, sha1sum, file_, ext, scratch, user, zip_file):
         dir_path = os.path.join(project.path, sha1sum)
         tmp_dir_path = dir_path + '~'
         if os.path.isdir(tmp_dir_path):
@@ -200,21 +186,22 @@ class Submission(object):
                 tmp_dir_path += '~'
         # Create the directory by sha1sum
         os.mkdir(tmp_dir_path)
-        # Save a copy of the file
-        file_.seek(0)
-        filename = cls.SCRATCH_FILENAME.format(ext)
-        pretty_filename = '{}{}'.format(project.name, ext)
+
+        # Save a copy of the uncompressed file
+        file_.file.seek(0)
+        filename = project.name + ext
         with open(os.path.join(tmp_dir_path, filename), 'w') as fp:
-            shutil.copyfileobj(file_, fp)
-        os.symlink(filename, os.path.join(tmp_dir_path, pretty_filename))
-        if not zip_file and save_name and save_name != filename:
-            os.symlink(filename, os.path.join(tmp_dir_path, save_name))
-        # Save a copy of the zipfile if it exists
+            shutil.copyfileobj(file_.file, fp)
+
+        # Save a copy of the compressed history file if it exists
         if zip_file:
-            zip_path = cls.save_zip_file(tmp_dir_path, zip_file)
-            zip_name = os.path.basename(zip_path)
-            if save_name and save_name != zip_name:
-                os.symlink(zip_path, os.path.join(tmp_dir_path, save_name))
+            filename = os.path.basename(
+                cls.save_zip_file(tmp_dir_path, zip_file))
+
+        # Make a symlink using the original uploaded name
+        original_path = os.path.join(tmp_dir_path, file_.filename)
+        if not os.path.isfile(original_path):
+            os.symlink(filename, original_path)
 
         # Save the thumbnail
         scratch.thumbnail.save(os.path.join(tmp_dir_path, cls.THUMB_FILENAME))
@@ -266,7 +253,7 @@ class Submission(object):
     def get_download_url(self, request):
         for ext in ('.oct', '.sb', '.sb2', '.zip'):
             path = os.path.join(self.project.path, self.sha1sum,
-                                'file' + ext)
+                                self.project.name + ext)
             if os.path.exists(path):
                 return request.static_url(path)
         raise Exception('No download URL available.')

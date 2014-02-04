@@ -16,8 +16,7 @@ requires = [
     'pyramid_tm',
     'transaction',
     'waitress',
-    'zope.sqlalchemy'
-    ]
+    'zope.sqlalchemy']
 
 setup(name='octopi',
       version='0.0',

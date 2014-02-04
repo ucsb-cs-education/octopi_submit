@@ -1,13 +1,14 @@
 from cStringIO import StringIO
 from hashlib import sha1
 from kelp.kelpplugin import KelpPlugin
+from kelp.offline import htmlwrappers
 from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
 from pyramid.view import view_config
 from zipfile import ZipFile
 from ..models import CLASSES, PROJECTS, Submission
-import kelp.offline  # noqa
 import os
+import traceback
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 
@@ -70,12 +71,25 @@ def submission_create(request):
         # TODO: Pretty up this exception handling
         return HTTPBadRequest()
     # Save the project
-    Submission.save(project, sha1sum, to_upload.file, ext, scratch,
-                    request.user, zip_file, save_name=to_upload.filename)
+    Submission.save(project, sha1sum, to_upload, ext, scratch,
+                    request.user, zip_file)
 
     # Write the results (nothing to save anymore)
     dir_path = os.path.join(project.path, sha1sum)
-    open(os.path.join(dir_path, 'results.html'), 'w').close()
+    html = []
+    try:
+        for plugin_class in project.plugins:
+            plugin = plugin_class()
+            results = plugin._process(scratch)
+            html.append(htmlwrappers[plugin.__class__.__name__](results))
+    except:
+        html.append('<div class="alert alert-danger">There was an error '
+                    'processing your submission. Please notify your teacher.'
+                    '</div>')
+        html.append('<pre style="display: None">{}</pre>'
+                    .format(traceback.format_exc()))
+    with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
+        fp.write('\n'.join(html))
     # Save the flash message
     request.session.flash('Thanks for submitting your project!')
     return response
