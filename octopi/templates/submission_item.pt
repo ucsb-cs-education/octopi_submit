@@ -5,7 +5,7 @@
     <p><a href="${submission.get_download_url(request)}">Download</a></p>
     <p><img src="${thumbnail_url}"></p>
     <div tal:condition="content">
-      (<a class="toggle">Toggle Feedback</a>)
+      (<a class="toggle">Feedback</a>)
       <div style="display:None" id="pluginresults" tal:content="structure content"></div>
     </div>
   </div>
