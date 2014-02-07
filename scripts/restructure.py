@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from collections import defaultdict
-from datetime import datetime
 from zipfile import ZipFile
 import json
 import os
@@ -10,8 +9,6 @@ import sys
 
 
 DATE_RE = re.compile('\d{4}-\d{1,2}-\d{1,2} \d{2}:\d{2}:\d{2}')
-DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-
 ZIP_CRCS = {}
 
 
@@ -48,11 +45,11 @@ def analyze_projects(base_path):
 
 
 def scratch_file_date(fp):
-    return datetime.strptime(DATE_RE.findall(fp.read())[-1], DATE_FORMAT)
+    return DATE_RE.findall(fp.read())[-1]
 
 
 def copy_scratch_file(path, fp, file_date, crc=None):
-    filepath = os.path.join(path, file_date.isoformat() + '.oct')
+    filepath = os.path.join(path, file_date + '.oct')
     if crc:
         if ZIP_CRCS.get(filepath) == crc:
             return  # We've already got this file
