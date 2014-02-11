@@ -3,7 +3,7 @@ from hashlib import sha1
 from kelp.kelpplugin import KelpPlugin
 from kelp.offline import htmlwrappers
 from kurt import Project as KurtProject
-from pyramid.httpexceptions import HTTPBadRequest, HTTPFound
+from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.view import view_config
 from zipfile import ZipFile
 from ..models import CLASSES, PROJECTS, Submission
@@ -39,12 +39,13 @@ def submission_create(request):
                 ext = '.oct'
         elif ext not in EXT_MAPPING:
             raise Exception('Invalid extension')
-    except Exception:
+    except Exception as exc:
+        print(str(exc))
         return HTTPBadRequest()
 
     # Submit to the first class the user is a member of
     if not request.user.classes_dict:
-        return HTTPBadRequest()
+        return HTTPForbidden()
     class_name = request.user.classes_dict.keys()[0]
 
     # Find the appropriate project
@@ -67,8 +68,8 @@ def submission_create(request):
     # Load the file with Kurt
     try:
         scratch = KurtProject.load(to_upload.file, format=EXT_MAPPING[ext])
-    except Exception:  # Probably not a valid scratch file
-        # TODO: Pretty up this exception handling
+    except Exception as exc:  # Probably not a valid scratch file
+        print(str(exc))
         return HTTPBadRequest()
     # Save the project
     Submission.save(project, sha1sum, to_upload, ext, scratch,
