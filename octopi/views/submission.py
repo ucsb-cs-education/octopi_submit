@@ -5,10 +5,10 @@ from kelp.offline import htmlwrappers
 from kurt import Project as KurtProject
 from pyramid.httpexceptions import HTTPBadRequest, HTTPForbidden, HTTPFound
 from pyramid.view import view_config
+from traceback import format_exc
 from zipfile import ZipFile
 from ..models import CLASSES, PROJECTS, Submission
 import os
-import traceback
 
 EXT_MAPPING = {'.oct': 'octopi', '.sb': 'scratch14', '.sb2': 'scratch20'}
 
@@ -39,8 +39,8 @@ def submission_create(request):
                 ext = '.oct'
         elif ext not in EXT_MAPPING:
             raise Exception('Invalid extension')
-    except Exception as exc:
-        print(str(exc))
+    except Exception:
+        print(format_exc())
         return HTTPBadRequest()
 
     # Submit to the first class the user is a member of
@@ -68,8 +68,8 @@ def submission_create(request):
     # Load the file with Kurt
     try:
         scratch = KurtProject.load(to_upload.file, format=EXT_MAPPING[ext])
-    except Exception as exc:  # Probably not a valid scratch file
-        print(str(exc))
+    except Exception:  # Probably not a valid scratch file
+        print(format_exc())
         return HTTPBadRequest()
     # Save the project
     Submission.save(project, sha1sum, to_upload, ext, scratch,
@@ -85,7 +85,7 @@ def submission_create(request):
             results = plugin._process(scratch)
             html.append(htmlwrappers[plugin.__class__.__name__](results))
         except:
-            exceptions.append(traceback.format_exc())
+            exceptions.append(format_exc())
     if exceptions:
         html.append('<div class="alert alert-danger">There was an error '
                     'processing your submission. Please notify your teacher.'
