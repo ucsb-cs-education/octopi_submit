@@ -26,6 +26,13 @@ KelpPlugin.get_paths = staticmethod(_get_paths)
 @view_config(route_name='submission', request_method='POST',
              permission='create')
 def submission_create(request):
+    # Validate form submission
+    if 'file_to_upload' not in request.POST:
+        return HTTPBadRequest()
+    elif not request.POST['file_to_upload']:
+        request.session.flash('Please select a file to upload.')
+        return HTTPFound(request.route_url('submission.create'))
+
     # Validate fields
     try:
         to_upload = request.POST['file_to_upload']
@@ -102,7 +109,7 @@ def submission_create(request):
 @view_config(route_name='submission.create', permission='create',
              renderer='octopi:templates/form_submit.pt')
 def submission_form(request):
-    return {}
+    return {'flash': request.session.pop_flash()}
 
 
 @view_config(route_name='submission.item', request_method='GET',
