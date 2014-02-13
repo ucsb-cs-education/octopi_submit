@@ -1,4 +1,5 @@
 from cStringIO import StringIO
+from cgi import FieldStorage
 from hashlib import sha1
 from kelp.kelpplugin import KelpPlugin
 from kelp.offline import htmlwrappers
@@ -29,7 +30,7 @@ def submission_create(request):
     # Validate form submission
     if 'file_to_upload' not in request.POST:
         return HTTPBadRequest()
-    elif not request.POST['file_to_upload']:
+    elif not isinstance(request.POST['file_to_upload'], FieldStorage):
         request.session.flash('Please select a file to upload.')
         return HTTPFound(request.route_url('submission.create'))
 
