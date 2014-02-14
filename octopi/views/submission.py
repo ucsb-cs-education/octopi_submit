@@ -37,7 +37,8 @@ def submission_create(request):
     # Validate fields
     try:
         to_upload = request.POST['file_to_upload']
-        project_name, ext = os.path.splitext(to_upload.filename)
+        project_name, orig_ext = os.path.splitext(to_upload.filename)
+        ext = orig_ext
         zip_file = None
         if ext == '.octx':  # Attempt to read as zip and look for project.oct
             zip_file = to_upload.file
@@ -64,14 +65,23 @@ def submission_create(request):
     # Compute the sha1sum of the file and build the response
     sha1sum = sha1(to_upload.file.read()).hexdigest()
     to_upload.file.seek(0)
-    response = HTTPFound(request.route_url('submission.item',
-                                           class_id=class_name,
-                                           project_id=project_name,
-                                           submission_id=sha1sum))
+
+    if orig_ext == '.oct':
+        flash_message = ('Thanks for turning in your .oct file! Will you '
+                         'please also turn in your .octx file? Thank you.')
+        response = HTTPFound(request.route_url('submission.create'))
+    else:
+        # Save the flash message
+        flash_message = 'Thanks for turning in your project!'
+        response = HTTPFound(request.route_url('submission.item',
+                                               class_id=class_name,
+                                               project_id=project_name,
+                                               submission_id=sha1sum))
 
     # Check to see if we've already processed this file
     if project.has_submission(sha1sum, add_user=request.user,
                               zip_file=zip_file):
+        request.session.flash(flash_message)
         return response
     # Load the file with Kurt
     try:
@@ -102,8 +112,7 @@ def submission_create(request):
             html.append('<pre style="display: None">{}</pre>'.format(exc))
     with open(os.path.join(dir_path, 'results.html'), 'w') as fp:
         fp.write('\n'.join(html))
-    # Save the flash message
-    request.session.flash('Thanks for submitting your project!')
+    request.session.flash(flash_message)
     return response
 
 
