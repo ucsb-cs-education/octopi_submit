@@ -17,6 +17,7 @@ PROJECTS = {
     'DanceParty': PLUGINS['dance'],
     'MammalsGame': PLUGINS['predator'],
     'PinataInitialization': [],
+    'NamePoem': [],
     'Planets': PLUGINS['part1'],
     'PlantGrowing': PLUGINS['plants'],
     'Rocket': PLUGINS['part2']}
